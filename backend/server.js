@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const JWT_SECRET = 'your-secret-key-change-in-production';
+const JWT_SECRET = 'choosekonguengineeringcollegeforbestfuture';
 const MONGODB_URI = 'mongodb://localhost:27017/mba-career-assessment';
 
 // MongoDB Connection
@@ -36,6 +36,7 @@ const userSchema = new mongoose.Schema({
     },
     topThree: [String],
     primaryCareer: String,
+    recommendedCareers: [String],
     completedAt: Date
   }
 });
@@ -50,7 +51,7 @@ const questionSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const Question = mongoose.model('Question', questionSchema);
 
-// Middleware for authentication
+// Middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -69,6 +70,16 @@ const isAdmin = (req, res, next) => {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();
+};
+
+// Career recommendations based on RIASEC
+const careerRecommendations = {
+  'R': ['Agriculture', 'Health Assistant', 'Computers', 'Construction', 'Mechanic/Machinist', 'Engineering', 'Food and Hospitality'],
+  'I': ['Marine Biology', 'Engineering', 'Chemistry', 'Zoology', 'Medicine/Surgery', 'Consumer Economics', 'Psychology'],
+  'A': ['Communications', 'Cosmetology', 'Fine and Performing Arts', 'Photography', 'Radio and TV', 'Interior Design', 'Architecture'],
+  'S': ['Counseling', 'Nursing', 'Physical Therapy', 'Travel', 'Advertising', 'Public Relations', 'Education'],
+  'E': ['Fashion Merchandising', 'Real Estate', 'Marketing/Sales', 'Law', 'Political Science', 'International Trade', 'Banking/Finance'],
+  'C': ['Accounting', 'Court Reporting', 'Insurance', 'Administration', 'Medical Records', 'Banking', 'Data Processing']
 };
 
 // Auth Routes
@@ -187,19 +198,19 @@ app.delete('/api/questions/:id', authenticateToken, isAdmin, async (req, res) =>
   }
 });
 
-// Test Submission Route with Likert Scale (1-5)
+// Test Submission - Fixed calculation based on PDF (1=Disagree, 5=Agree gives points)
 app.post('/api/submit-test', authenticateToken, async (req, res) => {
   try {
-    const { answers } = req.body; // answers is an object { questionId: score (1-5) }
+    const { answers } = req.body;
     
     const questions = await Question.find();
     const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
     
-    // Calculate scores based on Likert scale responses (1-5)
+    // Calculate scores: Only count if answer >= 4 (Agree or Strongly Agree)
     questions.forEach(q => {
       const answerValue = answers[q._id.toString()];
-      if (answerValue !== undefined && answerValue !== null) {
-        scores[q.category] += parseInt(answerValue);
+      if (answerValue >= 4) {
+        scores[q.category] += 1;
       }
     });
     
@@ -220,12 +231,16 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
       C: 'Conventional'
     };
     
+    // Get career recommendations
+    const recommendedCareers = careerRecommendations[primaryCareer] || [];
+    
     const user = await User.findById(req.user.id);
     user.hasCompletedTest = true;
     user.testResult = {
       scores,
       topThree: topThree.map(code => `${code} - ${careerMap[code]}`),
       primaryCareer: `${primaryCareer} - ${careerMap[primaryCareer]}`,
+      recommendedCareers,
       completedAt: new Date()
     };
     
@@ -235,6 +250,7 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
       scores,
       topThree: topThree.map(code => `${code} - ${careerMap[code]}`),
       primaryCareer: `${primaryCareer} - ${careerMap[primaryCareer]}`,
+      recommendedCareers,
       fullResult: user.testResult
     });
   } catch (error) {
@@ -254,26 +270,37 @@ app.get('/api/admin/students', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/admin/students/search', authenticateToken, isAdmin, async (req, res) => {
+app.get('/api/admin/students/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const { query } = req.query;
-    const students = await User.find({
-      role: 'student',
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { rollNumber: { $regex: query, $options: 'i' } }
-      ]
-    }).select('-password');
-    res.json(students);
+    const student = await User.findById(req.params.id).select('-password');
+    res.json(student);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// Delete student account completely
 app.delete('/api/admin/students/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Student record deleted successfully' });
+    res.json({ message: 'Student deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reset student assessment only
+app.post('/api/admin/students/:id/reset-assessment', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { 
+        $set: { hasCompletedTest: false },
+        $unset: { testResult: 1 }
+      },
+      { new: true }
+    ).select('-password');
+    res.json({ message: 'Assessment reset successfully', user });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

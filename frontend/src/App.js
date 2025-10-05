@@ -3,7 +3,6 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
 
-// Axios interceptor for auth token
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -32,7 +31,14 @@ function App() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
@@ -41,17 +47,24 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-indigo-600 text-white p-4 shadow-lg">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">MBA Career Assessment</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm">Welcome, {user.name}</span>
-            <button
-              onClick={handleLogout}
-              className="bg-indigo-700 hover:bg-indigo-800 px-4 py-2 rounded transition"
-            >
-              Logout
-            </button>
+      <nav className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <h1 className="text-lg font-bold">MBA Career Assessment</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm hidden md:inline">{user.name}</span>
+              <button
+                onClick={handleLogout}
+                className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm transition"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -59,7 +72,7 @@ function App() {
       {user.role === 'admin' ? (
         <AdminDashboard />
       ) : (
-        <StudentDashboard user={user} setUser={setUser} />
+        <StudentDashboard user={user} />
       )}
     </div>
   );
@@ -77,11 +90,7 @@ function Login({ setUser }) {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_URL}/login`, {
-        rollNumber,
-        password
-      });
-
+      const response = await axios.post(`${API_URL}/login`, { rollNumber, password });
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       setUser(response.data.user);
@@ -94,43 +103,44 @@ function Login({ setUser }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">MBA Career Assessment</h1>
-          <p className="text-gray-600">Discover Your Ideal Career Path</p>
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+        <div className="text-center mb-6">
+          <div className="inline-block bg-indigo-100 p-3 rounded-full mb-3">
+            <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800">Career Assessment</h1>
+          <p className="text-gray-600 text-sm">Discover Your Ideal Path</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Roll Number
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
             <input
               type="text"
               value={rollNumber}
               onChange={(e) => setRollNumber(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Enter your roll number"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              placeholder="Enter roll number"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Enter your password"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              placeholder="Enter password"
               required
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -138,23 +148,27 @@ function Login({ setUser }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-lg transition disabled:opacity-50"
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-2.5 rounded-lg transition disabled:opacity-50"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Demo Accounts:</p>
-          <p className="font-mono">Admin: ADMIN001 / admin123</p>
-          <p className="font-mono">Student: MB001 / student</p>
+        <div className="mt-6 text-center">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <p className="text-xs font-semibold text-gray-700 mb-2">Demo Accounts</p>
+            <div className="space-y-1 text-xs text-gray-600">
+              <p><span className="font-mono bg-white px-2 py-0.5 rounded">ADMIN001</span> / <span className="font-mono bg-white px-2 py-0.5 rounded">admin123</span></p>
+              <p><span className="font-mono bg-white px-2 py-0.5 rounded">MB001</span> / <span className="font-mono bg-white px-2 py-0.5 rounded">student</span></p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function StudentDashboard({ user, setUser }) {
+function StudentDashboard({ user }) {
   const [view, setView] = useState('home');
   const [profile, setProfile] = useState(null);
 
@@ -172,34 +186,28 @@ function StudentDashboard({ user, setUser }) {
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6 flex gap-4">
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="mb-6 flex flex-wrap gap-3">
         <button
           onClick={() => setView('home')}
-          className={`px-6 py-2 rounded-lg transition ${
-            view === 'home'
-              ? 'bg-indigo-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          className={`px-6 py-2 rounded-lg font-medium transition ${
+            view === 'home' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-700 hover:bg-gray-50'
           }`}
         >
-          Home
+          Dashboard
         </button>
         <button
           onClick={() => setView('test')}
-          className={`px-6 py-2 rounded-lg transition ${
-            view === 'test'
-              ? 'bg-indigo-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          className={`px-6 py-2 rounded-lg font-medium transition ${
+            view === 'test' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-700 hover:bg-gray-50'
           }`}
         >
-          Take Test
+          Take Assessment
         </button>
         <button
           onClick={() => setView('settings')}
-          className={`px-6 py-2 rounded-lg transition ${
-            view === 'settings'
-              ? 'bg-indigo-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          className={`px-6 py-2 rounded-lg font-medium transition ${
+            view === 'settings' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-700 hover:bg-gray-50'
           }`}
         >
           Settings
@@ -214,128 +222,94 @@ function StudentDashboard({ user, setUser }) {
 }
 
 function StudentHome({ profile }) {
-  if (!profile) return <div>Loading...</div>;
+  if (!profile) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-10 w-10 border-b-4 border-indigo-600"></div></div>;
 
-  const careerDescriptions = {
-    'R': {
-      name: 'Realistic',
-      description: 'People with Realistic interests like to work with things and tools. They are often good at mechanical or athletic jobs.',
-      majors: ['Agriculture', 'Health Assistant', 'Computers', 'Construction', 'Mechanic/Machinist', 'Engineering', 'Food and Hospitality'],
-      pathways: ['Natural Resources', 'Health Services', 'Industrial and Engineering Technology', 'Arts and Communication']
-    },
-    'I': {
-      name: 'Investigative',
-      description: 'People with Investigative interests like to watch, learn, analyze and solve problems.',
-      majors: ['Marine Biology', 'Engineering', 'Chemistry', 'Zoology', 'Medicine/Surgery', 'Consumer Economics', 'Psychology'],
-      pathways: ['Health Services', 'Business', 'Public and Human Services', 'Industrial and Engineering Technology']
-    },
-    'A': {
-      name: 'Artistic',
-      description: 'People with Artistic interests like to work in unstructured situations where they can use their creativity.',
-      majors: ['Communications', 'Cosmetology', 'Fine and Performing Arts', 'Photography', 'Radio and TV', 'Interior Design', 'Architecture'],
-      pathways: ['Public and Human Services', 'Arts and Communication']
-    },
-    'S': {
-      name: 'Social',
-      description: 'People with Social interests like to work with other people, rather than things.',
-      majors: ['Counseling', 'Nursing', 'Physical Therapy', 'Travel', 'Advertising', 'Public Relations', 'Education'],
-      pathways: ['Health Services', 'Public and Human Services']
-    },
-    'E': {
-      name: 'Enterprising',
-      description: 'People with Enterprising interests like to work with others and enjoy persuading and performing.',
-      majors: ['Fashion Merchandising', 'Real Estate', 'Marketing/Sales', 'Law', 'Political Science', 'International Trade', 'Banking/Finance'],
-      pathways: ['Business', 'Public and Human Services', 'Arts and Communication']
-    },
-    'C': {
-      name: 'Conventional',
-      description: 'People with Conventional interests are very detail oriented, organized and like to work with data.',
-      majors: ['Accounting', 'Court Reporting', 'Insurance', 'Administration', 'Medical Records', 'Banking', 'Data Processing'],
-      pathways: ['Health Services', 'Business', 'Industrial and Engineering Technology']
-    }
+  const careerData = {
+    'R': { name: 'Realistic', color: 'bg-blue-500', desc: 'Hands-on work with tools and machinery' },
+    'I': { name: 'Investigative', color: 'bg-purple-500', desc: 'Analytical and research-oriented' },
+    'A': { name: 'Artistic', color: 'bg-pink-500', desc: 'Creative expression and innovation' },
+    'S': { name: 'Social', color: 'bg-green-500', desc: 'People-oriented and helping' },
+    'E': { name: 'Enterprising', color: 'bg-orange-500', desc: 'Leadership and entrepreneurship' },
+    'C': { name: 'Conventional', color: 'bg-gray-500', desc: 'Organized and detail-oriented' }
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Welcome to Your Career Assessment Portal</h2>
-        <p className="text-gray-600 mb-4">
-          This assessment is based on the RIASEC (Holland Code) model, which helps identify your career interests and suggests suitable pathways for your MBA journey.
-        </p>
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Your Career Portal</h2>
+        <p className="text-gray-600 text-sm">Based on the RIASEC (Holland Code) career assessment model</p>
         
-        {profile.hasCompletedTest ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-green-800 font-medium">✓ You have completed the assessment!</p>
-          </div>
-        ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-yellow-800 font-medium">→ You haven't taken the assessment yet. Click "Take Test" to begin.</p>
-          </div>
-        )}
+        <div className="mt-4">
+          {profile.hasCompletedTest ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+              <span className="text-2xl">✓</span>
+              <div>
+                <p className="text-green-800 font-semibold">Assessment Completed</p>
+                <p className="text-green-700 text-sm">Your career profile is ready below</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
+              <span className="text-2xl">📋</span>
+              <div>
+                <p className="text-yellow-800 font-semibold">Ready to Begin?</p>
+                <p className="text-yellow-700 text-sm">Click "Take Assessment" to discover your career path</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {profile.hasCompletedTest && profile.testResult && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Your Results</h3>
-          
-          <div className="mb-6">
-            <h4 className="font-semibold text-gray-700 mb-2">Your Scores:</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {Object.entries(profile.testResult.scores).map(([code, score]) => (
-                <div key={code} className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-indigo-600">{code}</div>
-                  <div className="text-3xl font-bold text-gray-800">{score}</div>
-                  <div className="text-sm text-gray-600">{careerDescriptions[code].name}</div>
+        <>
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+            <h3 className="text-xl font-bold mb-4">Your Career Profile</h3>
+            <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-4">
+              <p className="text-3xl font-bold mb-1">{profile.testResult.primaryCareer}</p>
+              <p className="text-sm text-white/90">{careerData[profile.testResult.topThree[0]?.split(' ')[0]]?.desc}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {profile.testResult.topThree.slice(0, 3).map((area, idx) => (
+                <div key={idx} className="bg-white/10 backdrop-blur rounded-lg p-3 text-center">
+                  <p className="text-xs font-semibold mb-1">#{idx + 1}</p>
+                  <p className="text-sm font-bold">{area.split(' - ')[0]}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mb-6">
-            <h4 className="font-semibold text-gray-700 mb-2">Your Top Three Interest Areas:</h4>
-            <div className="space-y-2">
-              {profile.testResult.topThree.map((area, idx) => (
-                <div key={idx} className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
-                  <span className="font-medium text-indigo-800">{idx + 1}. {area}</span>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h4 className="text-xl font-bold mb-4">Recommended Careers</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {profile.testResult.recommendedCareers?.map((career, idx) => (
+                <div key={idx} className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
+                  <p className="text-sm font-medium text-indigo-800">{career}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-6 rounded-lg">
-            <h4 className="font-semibold mb-2">Your Primary Career Profile:</h4>
-            <p className="text-2xl font-bold mb-4">{profile.testResult.primaryCareer}</p>
-            {profile.testResult.topThree[0] && (
-              <div className="mt-4">
-                <p className="mb-3">{careerDescriptions[profile.testResult.topThree[0].split(' ')[0]].description}</p>
-                <div className="bg-white/20 p-4 rounded">
-                  <p className="font-semibold mb-2">Recommended Majors:</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    {careerDescriptions[profile.testResult.topThree[0].split(' ')[0]].majors.map((major, idx) => (
-                      <li key={idx}>{major}</li>
-                    ))}
-                  </ul>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h4 className="text-xl font-bold mb-4">Score Breakdown</h4>
+            {Object.entries(profile.testResult.scores).sort(([,a], [,b]) => b - a).map(([code, score]) => {
+              const career = careerData[code];
+              const maxScore = 7;
+              const percentage = (score / maxScore) * 100;
+              return (
+                <div key={code} className="mb-3">
+                  <div className="flex justify-between mb-1 text-sm">
+                    <span className="font-semibold">{code} - {career.name}</span>
+                    <span className="font-semibold">{score}/{maxScore}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className={`${career.color} h-3 rounded-full transition-all`} style={{ width: `${percentage}%` }}></div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
           </div>
-        </div>
+        </>
       )}
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">About the RIASEC Assessment</h3>
-        <p className="text-gray-600 mb-4">
-          The RIASEC model identifies six personality types: Realistic, Investigative, Artistic, Social, Enterprising, and Conventional. Understanding your personality type helps you make informed decisions about your career path and specialization in MBA.
-        </p>
-        <div className="grid md:grid-cols-2 gap-4">
-          {Object.entries(careerDescriptions).map(([code, data]) => (
-            <div key={code} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-              <h4 className="font-bold text-indigo-600 mb-2">{code} - {data.name}</h4>
-              <p className="text-sm text-gray-600">{data.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -343,6 +317,7 @@ function StudentHome({ profile }) {
 function TestComponent({ profile, fetchProfile }) {
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -357,18 +332,31 @@ function TestComponent({ profile, fetchProfile }) {
       setQuestions(response.data);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching questions:', error);
+      console.error('Error:', error);
       setLoading(false);
     }
   };
 
-  const handleAnswerChange = (questionId, value) => {
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
+  const handleSliderChange = (value) => {
+    const currentQuestion = questions[currentIndex];
+    setAnswers(prev => ({ ...prev, [currentQuestion._id]: value }));
+  };
+
+  const handleNext = () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
   };
 
   const handleSubmit = async () => {
     if (Object.keys(answers).length < questions.length) {
-      alert('Please answer all questions before submitting.');
+      alert('Please answer all questions');
       return;
     }
 
@@ -378,8 +366,7 @@ function TestComponent({ profile, fetchProfile }) {
       setResult(response.data);
       await fetchProfile();
     } catch (error) {
-      console.error('Error submitting test:', error);
-      alert('Failed to submit test. Please try again.');
+      alert('Submission failed');
     } finally {
       setSubmitting(false);
     }
@@ -387,148 +374,135 @@ function TestComponent({ profile, fetchProfile }) {
 
   if (profile?.hasCompletedTest && !result) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Test Already Completed</h3>
-        <p className="text-gray-600 mb-4">You have already completed the career assessment. Your results are displayed on the Home page.</p>
-        <p className="text-sm text-gray-500">If you need to retake the test, please contact the administrator.</p>
+      <div className="bg-white rounded-xl shadow-md p-8 text-center">
+        <div className="text-5xl mb-3">✓</div>
+        <h3 className="text-2xl font-bold mb-2">Assessment Completed</h3>
+        <p className="text-gray-600">View your results on the Dashboard</p>
       </div>
     );
   }
 
-  if (loading) {
-    return <div className="text-center py-8">Loading questions...</div>;
-  }
+  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>;
 
   if (result) {
-    return <TestResults result={result} />;
-  }
-
-  const answeredCount = Object.keys(answers).length;
-  const progress = (answeredCount / questions.length) * 100;
-
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Career Assessment Test</h2>
-        <p className="text-gray-600 mb-4">
-          Read each statement carefully. If you agree with the statement, check the box. There are no wrong answers!
-        </p>
-        <div className="mb-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-1">
-            <span>Progress</span>
-            <span>{answeredCount} / {questions.length}</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-indigo-600 h-2 rounded-full transition-all"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="bg-green-500 text-white rounded-xl p-8 text-center">
+          <div className="text-6xl mb-3">🎉</div>
+          <h2 className="text-3xl font-bold">Assessment Complete!</h2>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        {questions.map((question, idx) => (
-          <div key={question._id} className="bg-white rounded-lg shadow p-4 hover:shadow-md transition">
-            <label className="flex items-start cursor-pointer">
-              <input
-                type="checkbox"
-                checked={answers[question._id] || false}
-                onChange={(e) => handleAnswerChange(question._id, e.target.checked)}
-                className="mt-1 mr-3 h-5 w-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
-              />
-              <span className="text-gray-800">
-                <span className="font-semibold">{question.questionNumber}.</span> {question.text}
-              </span>
-            </label>
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h3 className="text-xl font-bold mb-4">Your Results</h3>
+          <div className="bg-indigo-50 rounded-lg p-4 mb-4">
+            <h4 className="font-bold text-indigo-800 mb-1">Primary Career Type</h4>
+            <p className="text-2xl font-bold text-indigo-600">{result.primaryCareer}</p>
           </div>
-        ))}
-      </div>
-
-      <div className="mt-6 bg-white rounded-lg shadow p-6">
-        <button
-          onClick={handleSubmit}
-          disabled={submitting || answeredCount < questions.length}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? 'Submitting...' : 'Submit Test'}
-        </button>
-        {answeredCount < questions.length && (
-          <p className="text-center text-sm text-gray-500 mt-2">
-            Please answer all {questions.length} questions to submit
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TestResults({ result }) {
-  const careerInfo = {
-    'R': { name: 'Realistic', color: 'bg-blue-500', description: 'You enjoy working with your hands, tools, and machinery. You prefer practical, hands-on work.' },
-    'I': { name: 'Investigative', color: 'bg-purple-500', description: 'You enjoy solving problems, analyzing data, and conducting research. You prefer intellectual challenges.' },
-    'A': { name: 'Artistic', color: 'bg-pink-500', description: 'You enjoy creative expression, innovation, and working in unstructured environments.' },
-    'S': { name: 'Social', color: 'bg-green-500', description: 'You enjoy helping others, teaching, and working in teams. You prefer people-oriented activities.' },
-    'E': { name: 'Enterprising', color: 'bg-yellow-500', description: 'You enjoy leading, persuading, and taking risks. You prefer business and entrepreneurial activities.' },
-    'C': { name: 'Conventional', color: 'bg-gray-500', description: 'You enjoy organization, data management, and following procedures. You prefer structured environments.' }
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-lg p-8 text-center">
-        <h2 className="text-3xl font-bold mb-4">🎉 Assessment Complete!</h2>
-        <p className="text-lg">Your career profile has been generated based on your responses.</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-6">Your Results</h3>
-        
-        <div className="mb-8">
-          <h4 className="text-lg font-semibold text-gray-700 mb-4">Score Breakdown</h4>
-          <div className="space-y-3">
-            {Object.entries(result.scores)
-              .sort(([, a], [, b]) => b - a)
-              .map(([code, score]) => (
-                <div key={code} className="flex items-center">
-                  <div className="w-24 font-semibold text-gray-700">{code} - {careerInfo[code].name}</div>
-                  <div className="flex-1 mx-4">
-                    <div className="w-full bg-gray-200 rounded-full h-6 relative">
-                      <div
-                        className={`${careerInfo[code].color} h-6 rounded-full flex items-center justify-end pr-2 transition-all`}
-                        style={{ width: `${(score / 7) * 100}%` }}
-                      >
-                        <span className="text-white text-sm font-bold">{score}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-6">
-          <h4 className="text-xl font-bold text-indigo-800 mb-4">Your Primary Career Type</h4>
-          <p className="text-2xl font-bold text-indigo-600 mb-4">{result.primaryCareer}</p>
-          {result.topThree[0] && (
-            <p className="text-gray-700">{careerInfo[result.topThree[0].split(' ')[0]].description}</p>
-          )}
-        </div>
-
-        <div className="mt-6">
-          <h4 className="text-lg font-semibold text-gray-700 mb-3">Your Top Three Interest Areas</h4>
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             {result.topThree.map((area, idx) => (
-              <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <span className="font-medium text-gray-800">{idx + 1}. {area}</span>
+              <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+                <span className="font-semibold">#{idx + 1}: {area}</span>
               </div>
             ))}
           </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-bold text-blue-800 mb-2">Recommended Careers</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {result.recommendedCareers.map((career, idx) => (
+                <div key={idx} className="text-sm text-blue-700">{career}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = questions[currentIndex];
+  const currentAnswer = answers[currentQuestion._id] || 3;
+  const answeredCount = Object.keys(answers).length;
+  const progress = (answeredCount / questions.length) * 100;
+
+  const sliderLabels = [
+    { value: 1, label: 'Strongly Disagree' },
+    { value: 2, label: 'Disagree' },
+    { value: 3, label: 'Neutral' },
+    { value: 4, label: 'Agree' },
+    { value: 5, label: 'Strongly Agree' }
+  ];
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-xl font-bold">Career Assessment</h2>
+          <span className="text-sm font-semibold text-indigo-600">
+            {currentIndex + 1} / {questions.length}
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2.5 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
+        </div>
+        <p className="text-xs text-gray-600 mt-2">{answeredCount} of {questions.length} answered</p>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-md p-8">
+        <div className="mb-8">
+          <div className="flex items-start gap-3 mb-6">
+            <div className="bg-indigo-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+              {currentQuestion.questionNumber}
+            </div>
+            <p className="text-lg font-medium text-gray-800 pt-1">{currentQuestion.text}</p>
+          </div>
         </div>
 
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">
-            <strong>Next Steps:</strong> Review your results on the Home page for detailed career recommendations, suitable majors, and career pathways aligned with your profile.
-          </p>
+        <div className="mb-8">
+          <div className="relative px-2">
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={currentAnswer}
+              onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+              className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <div className="flex justify-between mt-3">
+              {sliderLabels.map((item) => (
+                <div key={item.value} className="text-center flex-1">
+                  <div className={`text-xs font-medium ${currentAnswer === item.value ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
+                    {item.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center pt-4 border-t">
+          <button
+            onClick={handlePrevious}
+            disabled={currentIndex === 0}
+            className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 hover:bg-gray-300 transition"
+          >
+            ← Previous
+          </button>
+
+          {currentIndex === questions.length - 1 ? (
+            <button
+              onClick={handleSubmit}
+              disabled={answeredCount < questions.length || submitting}
+              className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold disabled:opacity-50 shadow-md"
+            >
+              {submitting ? 'Submitting...' : 'Submit Assessment'}
+            </button>
+          ) : (
+            <button
+              onClick={handleNext}
+              className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium shadow-md"
+            >
+              Next →
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -542,27 +516,19 @@ function StudentSettings() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const handleChangePassword = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
     setError('');
 
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Passwords do not match');
       return;
     }
 
     try {
-      await axios.post(`${API_URL}/change-password`, {
-        oldPassword,
-        newPassword
-      });
-      setMessage('Password changed successfully');
+      await axios.post(`${API_URL}/change-password`, { oldPassword, newPassword });
+      setMessage('Password changed successfully!');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -573,68 +539,43 @@ function StudentSettings() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Settings</h2>
-        
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-700">Change Password</h3>
-          
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-2xl font-bold mb-4">Account Settings</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Current Password
-            </label>
+            <label className="block text-sm font-medium mb-1">Current Password</label>
             <input
               type="password"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               required
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              New Password
-            </label>
+            <label className="block text-sm font-medium mb-1">New Password</label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               required
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Confirm New Password
-            </label>
+            <label className="block text-sm font-medium mb-1">Confirm New Password</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               required
             />
           </div>
-
-          {message && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-              {message}
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-lg transition"
-          >
-            Change Password
+          {message && <div className="bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded-lg text-sm">{message}</div>}
+          {error && <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded-lg text-sm">{error}</div>}
+          <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-2.5 rounded-lg shadow-md">
+            Update Password
           </button>
         </form>
       </div>
@@ -646,30 +587,21 @@ function AdminDashboard() {
   const [view, setView] = useState('students');
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6 flex gap-4">
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="mb-6 flex gap-3">
         <button
           onClick={() => setView('students')}
-          className={`px-6 py-2 rounded-lg transition ${
-            view === 'students'
-              ? 'bg-indigo-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-          }`}
+          className={`px-6 py-2 rounded-lg font-medium shadow-md transition ${view === 'students' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
         >
-          Students
+          Student Management
         </button>
         <button
           onClick={() => setView('questions')}
-          className={`px-6 py-2 rounded-lg transition ${
-            view === 'questions'
-              ? 'bg-indigo-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-          }`}
+          className={`px-6 py-2 rounded-lg font-medium shadow-md transition ${view === 'questions' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700'}`}
         >
-          Questions
+          Question Bank
         </button>
       </div>
-
       {view === 'students' && <StudentsManagement />}
       {view === 'questions' && <QuestionsManagement />}
     </div>
@@ -678,8 +610,8 @@ function AdminDashboard() {
 
 function StudentsManagement() {
   const [students, setStudents] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   useEffect(() => {
     fetchStudents();
@@ -691,156 +623,150 @@ function StudentsManagement() {
       setStudents(response.data);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching students:', error);
       setLoading(false);
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchStudents();
-      return;
-    }
-
-    try {
-      const response = await axios.get(`${API_URL}/admin/students/search?query=${searchQuery}`);
-      setStudents(response.data);
-    } catch (error) {
-      console.error('Error searching students:', error);
-    }
-  };
-
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete the record for ${name}?`)) {
-      return;
-    }
-
+  const handleDeleteStudent = async (id, name) => {
+    if (!window.confirm(`Delete student ${name} completely? This cannot be undone.`)) return;
     try {
       await axios.delete(`${API_URL}/admin/students/${id}`);
       setStudents(students.filter(s => s._id !== id));
-      alert('Student record deleted successfully');
+      alert('Student deleted successfully');
     } catch (error) {
-      console.error('Error deleting student:', error);
-      alert('Failed to delete student record');
+      alert('Failed to delete student');
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-8">Loading students...</div>;
-  }
+  const handleResetAssessment = async (id, name) => {
+    if (!window.confirm(`Reset assessment for ${name}?`)) return;
+    try {
+      await axios.post(`${API_URL}/admin/students/${id}/reset-assessment`);
+      fetchStudents();
+      alert('Assessment reset successfully');
+    } catch (error) {
+      alert('Failed to reset assessment');
+    }
+  };
+
+  const downloadReport = (student) => {
+    const report = `
+CAREER ASSESSMENT REPORT
+========================
+
+Student Information:
+- Name: ${student.name}
+- Roll Number: ${student.rollNumber}
+- Assessment Date: ${student.testResult?.completedAt ? new Date(student.testResult.completedAt).toLocaleDateString() : 'N/A'}
+
+Results:
+- Primary Career Type: ${student.testResult?.primaryCareer || 'N/A'}
+- Top Three Types: ${student.testResult?.topThree?.join(', ') || 'N/A'}
+
+Score Breakdown:
+${Object.entries(student.testResult?.scores || {}).map(([code, score]) => `- ${code}: ${score}/7`).join('\n')}
+
+Recommended Careers:
+${student.testResult?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}
+    `.trim();
+
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${student.rollNumber}_career_report.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>;
 
   return (
     <div>
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Student Management</h2>
-        
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search by name or roll number..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-          <button
-            onClick={handleSearch}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg transition"
-          >
-            Search
-          </button>
-          <button
-            onClick={fetchStudents}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition"
-          >
-            Reset
-          </button>
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h2 className="text-2xl font-bold mb-4">Student Management</h2>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <p className="text-xs font-semibold text-blue-700">TOTAL STUDENTS</p>
+            <p className="text-3xl font-bold text-blue-600">{students.length}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <p className="text-xs font-semibold text-green-700">COMPLETED</p>
+            <p className="text-3xl font-bold text-green-600">{students.filter(s => s.hasCompletedTest).length}</p>
+          </div>
+          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+            <p className="text-xs font-semibold text-yellow-700">PENDING</p>
+            <p className="text-3xl font-bold text-yellow-600">{students.filter(s => !s.hasCompletedTest).length}</p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Roll Number
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Test Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Result
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {students.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                    No students found
-                  </td>
-                </tr>
-              ) : (
-                students.map(student => (
-                  <tr key={student._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {student.rollNumber}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {student.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {student.hasCompletedTest ? (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                          Completed
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {student.testResult ? (
-                        <div>
-                          <div className="font-medium">{student.testResult.primaryCareer}</div>
-                          <div className="text-xs text-gray-500">
-                            {student.testResult.topThree.join(', ')}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold">Roll No</th>
+              <th className="px-4 py-3 text-left font-semibold">Name</th>
+              <th className="px-4 py-3 text-left font-semibold">Status</th>
+              <th className="px-4 py-3 text-left font-semibold">Career Type</th>
+              <th className="px-4 py-3 text-left font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {students.map(student => (
+              <tr key={student._id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-semibold">{student.rollNumber}</td>
+                <td className="px-4 py-3">{student.name}</td>
+                <td className="px-4 py-3">
+                  {student.hasCompletedTest ? (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Completed</span>
+                  ) : (
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">Pending</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {student.testResult ? (
+                    <div className="text-xs">
+                      <div className="font-semibold text-indigo-600">{student.testResult.primaryCareer?.split(' - ')[0]}</div>
+                      <div className="text-gray-500">Top: {student.testResult.topThree?.map(t => t.split(' ')[0]).join(', ')}</div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-xs">Not available</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    {student.testResult && (
                       <button
-                        onClick={() => handleDelete(student._id, student.name)}
-                        className="text-red-600 hover:text-red-800 font-medium"
+                        onClick={() => downloadReport(student)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold"
+                        title="Download Report"
                       >
-                        Delete
+                        Download
                       </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="mt-4 bg-white rounded-lg shadow p-4">
-        <div className="text-sm text-gray-600">
-          <strong>Total Students:</strong> {students.length} | 
-          <strong className="ml-4">Completed:</strong> {students.filter(s => s.hasCompletedTest).length} | 
-          <strong className="ml-4">Pending:</strong> {students.filter(s => !s.hasCompletedTest).length}
-        </div>
+                    )}
+                    {student.hasCompletedTest && (
+                      <button
+                        onClick={() => handleResetAssessment(student._id, student.name)}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs font-semibold"
+                        title="Reset Assessment"
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteStudent(student._id, student.name)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-semibold"
+                      title="Delete Student"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -849,13 +775,9 @@ function StudentsManagement() {
 function QuestionsManagement() {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState(null);
-  const [formData, setFormData] = useState({
-    questionNumber: '',
-    text: '',
-    category: 'R'
-  });
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [formData, setFormData] = useState({ questionNumber: '', text: '', category: 'R' });
 
   useEffect(() => {
     fetchQuestions();
@@ -867,110 +789,86 @@ function QuestionsManagement() {
       setQuestions(response.data);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching questions:', error);
       setLoading(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
-      if (editingQuestion) {
-        await axios.put(`${API_URL}/questions/${editingQuestion._id}`, formData);
-        alert('Question updated successfully');
+      if (editing) {
+        await axios.put(`${API_URL}/questions/${editing._id}`, formData);
+        alert('Updated successfully');
       } else {
         await axios.post(`${API_URL}/questions`, formData);
-        alert('Question added successfully');
+        alert('Added successfully');
       }
-      
       setFormData({ questionNumber: '', text: '', category: 'R' });
-      setShowAddForm(false);
-      setEditingQuestion(null);
+      setShowForm(false);
+      setEditing(null);
       fetchQuestions();
     } catch (error) {
-      console.error('Error saving question:', error);
-      alert('Failed to save question');
+      alert('Failed to save');
     }
   };
 
-  const handleEdit = (question) => {
-    setFormData({
-      questionNumber: question.questionNumber,
-      text: question.text,
-      category: question.category
-    });
-    setEditingQuestion(question);
-    setShowAddForm(true);
+  const handleEdit = (q) => {
+    setFormData({ questionNumber: q.questionNumber, text: q.text, category: q.category });
+    setEditing(q);
+    setShowForm(true);
   };
 
-  const handleDelete = async (id, questionNumber) => {
-    if (!window.confirm(`Are you sure you want to delete question ${questionNumber}?`)) {
-      return;
-    }
-
+  const handleDelete = async (id, num) => {
+    if (!window.confirm(`Delete question ${num}?`)) return;
     try {
       await axios.delete(`${API_URL}/questions/${id}`);
       setQuestions(questions.filter(q => q._id !== id));
-      alert('Question deleted successfully');
+      alert('Deleted successfully');
     } catch (error) {
-      console.error('Error deleting question:', error);
-      alert('Failed to delete question');
+      alert('Failed to delete');
     }
   };
 
-  const handleCancel = () => {
-    setFormData({ questionNumber: '', text: '', category: 'R' });
-    setShowAddForm(false);
-    setEditingQuestion(null);
-  };
-
-  if (loading) {
-    return <div className="text-center py-8">Loading questions...</div>;
-  }
+  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>;
 
   return (
     <div>
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">Question Management</h2>
+          <h2 className="text-2xl font-bold">Question Bank</h2>
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg transition"
+            onClick={() => {
+              setShowForm(!showForm);
+              if (showForm) {
+                setEditing(null);
+                setFormData({ questionNumber: '', text: '', category: 'R' });
+              }
+            }}
+            className={`px-5 py-2 rounded-lg font-semibold ${showForm ? 'bg-gray-600 text-white' : 'bg-green-500 text-white'}`}
           >
-            {showAddForm ? 'Cancel' : '+ Add Question'}
+            {showForm ? 'Cancel' : '+ Add Question'}
           </button>
         </div>
 
-        {showAddForm && (
-          <form onSubmit={handleSubmit} className="border-t pt-4 mt-4 space-y-4">
-            <h3 className="font-semibold text-gray-700">
-              {editingQuestion ? 'Edit Question' : 'Add New Question'}
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {showForm && (
+          <form onSubmit={handleSubmit} className="mt-4 space-y-4 bg-indigo-50 p-5 rounded-lg">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Question Number
-                </label>
+                <label className="block font-semibold mb-1 text-sm">Question Number</label>
                 <input
                   type="number"
                   value={formData.questionNumber}
                   onChange={(e) => setFormData({...formData, questionNumber: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border rounded-lg outline-none"
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category (RIASEC)
-                </label>
+                <label className="block font-semibold mb-1 text-sm">Category</label>
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  required
+                  className="w-full px-3 py-2 border rounded-lg outline-none"
                 >
                   <option value="R">R - Realistic</option>
                   <option value="I">I - Investigative</option>
@@ -981,99 +879,57 @@ function QuestionsManagement() {
                 </select>
               </div>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Question Text
-              </label>
+              <label className="block font-semibold mb-1 text-sm">Question Text</label>
               <textarea
                 value={formData.text}
                 onChange={(e) => setFormData({...formData, text: e.target.value})}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3 py-2 border rounded-lg outline-none"
                 rows="3"
                 required
               />
             </div>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg transition"
-              >
-                {editingQuestion ? 'Update Question' : 'Add Question'}
-              </button>
-              {editingQuestion && (
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
+            <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold">
+              {editing ? 'Update' : 'Add'} Question
+            </button>
           </form>
         )}
+
+        <div className="mt-4 bg-blue-50 rounded-lg p-3 border border-blue-200">
+          <p className="font-semibold text-blue-800 text-sm">Total Questions: {questions.length}</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  #
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Question
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold">#</th>
+              <th className="px-4 py-3 text-left font-semibold">Question</th>
+              <th className="px-4 py-3 text-left font-semibold">Category</th>
+              <th className="px-4 py-3 text-left font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {questions.map(q => (
+              <tr key={q._id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-semibold">{q.questionNumber}</td>
+                <td className="px-4 py-3">{q.text}</td>
+                <td className="px-4 py-3">
+                  <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-semibold">{q.category}</span>
+                </td>
+                <td className="px-4 py-3 space-x-2">
+                  <button onClick={() => handleEdit(q)} className="bg-indigo-500 text-white px-3 py-1 rounded text-xs font-semibold">
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(q._id, q.questionNumber)} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-semibold">
+                    Delete
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {questions.map(question => (
-                <tr key={question._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {question.questionNumber}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {question.text}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
-                      {question.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                    <button
-                      onClick={() => handleEdit(question)}
-                      className="text-indigo-600 hover:text-indigo-800 font-medium"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(question._id, question.questionNumber)}
-                      className="text-red-600 hover:text-red-800 font-medium"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="mt-4 bg-white rounded-lg shadow p-4">
-        <div className="text-sm text-gray-600">
-          <strong>Total Questions:</strong> {questions.length}
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
