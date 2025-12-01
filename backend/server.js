@@ -25,26 +25,32 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ['student', 'admin'], default: 'student' },
   hasCompletedTest: { type: Boolean, default: false },
-  testResult: {
-    scores: {
-      R: Number,
-      I: Number,
-      A: Number,
-      S: Number,
-      E: Number,
-      C: Number
-    },
-    topThree: [String],
-    primaryCareer: String,
-    recommendedCareers: [String],
-    completedAt: Date
-  }
+  // Keep per-test results so users can take multiple assessments
+  testResults: [
+    {
+      test: String,
+      scores: {
+        R: Number,
+        I: Number,
+        A: Number,
+        S: Number,
+        E: Number,
+        C: Number
+      },
+      topThree: [String],
+      primaryCareer: String,
+      recommendedCareers: [String],
+      completedAt: Date
+    }
+  ]
 });
 
 const questionSchema = new mongoose.Schema({
   questionNumber: { type: Number, required: true },
   text: { type: String, required: true },
   category: { type: String, enum: ['R', 'I', 'A', 'S', 'E', 'C'], required: true },
+  // which test this question belongs to (e.g. 'RIASEC', 'Aptitude')
+  test: { type: String, required: true, default: 'RIASEC' },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -80,6 +86,25 @@ const careerRecommendations = {
   'S': ['Counseling', 'Nursing', 'Physical Therapy', 'Travel', 'Advertising', 'Public Relations', 'Education'],
   'E': ['Fashion Merchandising', 'Real Estate', 'Marketing/Sales', 'Law', 'Political Science', 'International Trade', 'Banking/Finance'],
   'C': ['Accounting', 'Court Reporting', 'Insurance', 'Administration', 'Medical Records', 'Banking', 'Data Processing']
+};
+
+// Metadata/descriptions for available tests (used by frontend to show cards)
+const testsMeta = {
+  RIASEC: {
+    id: 'RIASEC',
+    name: 'RIASEC Career Assessment',
+    description: 'Interests-based career assessment (Realistic, Investigative, Artistic, Social, Enterprising, Conventional)'
+  },
+  Aptitude: {
+    id: 'Aptitude',
+    name: 'Aptitude Test',
+    description: 'Short quantitative and logical aptitude test'
+  },
+  Personality: {
+    id: 'Personality',
+    name: 'Personality Inventory',
+    description: 'Brief personality inventory to capture work-style preferences'
+  }
 };
 
 // Auth Routes
@@ -159,7 +184,72 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
 // Question Routes
 app.get('/api/questions', authenticateToken, async (req, res) => {
   try {
-    const questions = await Question.find().sort({ questionNumber: 1 });
+    // Support optional filtering by test name: /api/questions?test=RIASEC
+    const filter = {};
+    if (req.query.test) filter.test = req.query.test;
+    const questions = await Question.find(filter).sort({ questionNumber: 1 });
+    res.json(questions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Return available tests with counts and metadata
+app.get('/api/tests', authenticateToken, async (req, res) => {
+  try {
+    const agg = await Question.aggregate([
+      { $group: { _id: '$test', count: { $sum: 1 } } },
+      { $project: { _id: 0, name: '$_id', count: 1 } }
+    ]);
+
+    const tests = agg.map(t => {
+      const meta = testsMeta[t.name] || { id: t.name, name: t.name, description: '' };
+      return {
+        id: meta.id,
+        name: meta.name,
+        key: t.name,
+        description: meta.description,
+        questionCount: t.count
+      };
+    });
+
+    res.json(tests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Public (unauthenticated) version of tests list - useful for development/demo
+app.get('/api/public/tests', async (req, res) => {
+  try {
+    const agg = await Question.aggregate([
+      { $group: { _id: '$test', count: { $sum: 1 } } },
+      { $project: { _id: 0, name: '$_id', count: 1 } }
+    ]);
+
+    const tests = agg.map(t => {
+      const meta = testsMeta[t.name] || { id: t.name, name: t.name, description: '' };
+      return {
+        id: meta.id,
+        name: meta.name,
+        key: t.name,
+        description: meta.description,
+        questionCount: t.count
+      };
+    });
+
+    res.json(tests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Public questions endpoint (no auth required) - use ?test=NAME to filter
+app.get('/api/public/questions', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.test) filter.test = req.query.test;
+    const questions = await Question.find(filter).sort({ questionNumber: 1 });
     res.json(questions);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -201,9 +291,12 @@ app.delete('/api/questions/:id', authenticateToken, isAdmin, async (req, res) =>
 // Test Submission - Fixed calculation based on PDF (1=Disagree, 5=Agree gives points)
 app.post('/api/submit-test', authenticateToken, async (req, res) => {
   try {
-    const { answers } = req.body;
-    
-    const questions = await Question.find();
+    const { answers, test } = req.body;
+
+    // Only consider questions for the given test (fallback to all if not provided)
+    const filter = {};
+    if (test) filter.test = test;
+    const questions = await Question.find(filter);
     const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
     
     // Calculate scores: Only count if answer >= 4 (Agree or Strongly Agree)
@@ -235,14 +328,17 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
     const recommendedCareers = careerRecommendations[primaryCareer] || [];
     
     const user = await User.findById(req.user.id);
-    user.hasCompletedTest = true;
-    user.testResult = {
+    // Append per-test result instead of overwriting a single result
+    user.testResults = user.testResults || [];
+    const newResult = {
+      test: test || 'RIASEC',
       scores,
       topThree: topThree.map(code => `${code} - ${careerMap[code]}`),
       primaryCareer: `${primaryCareer} - ${careerMap[primaryCareer]}`,
       recommendedCareers,
       completedAt: new Date()
     };
+    user.testResults.push(newResult);
     
     await user.save();
     
@@ -251,7 +347,7 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
       topThree: topThree.map(code => `${code} - ${careerMap[code]}`),
       primaryCareer: `${primaryCareer} - ${careerMap[primaryCareer]}`,
       recommendedCareers,
-      fullResult: user.testResult
+      fullResult: newResult
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -295,8 +391,7 @@ app.post('/api/admin/students/:id/reset-assessment', authenticateToken, isAdmin,
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { 
-        $set: { hasCompletedTest: false },
-        $unset: { testResult: 1 }
+        $set: { hasCompletedTest: false, testResults: [] }
       },
       { new: true }
     ).select('-password');

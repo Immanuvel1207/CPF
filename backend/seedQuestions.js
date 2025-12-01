@@ -12,6 +12,7 @@ const questionSchema = new mongoose.Schema({
   questionNumber: { type: Number, required: true },
   text: { type: String, required: true },
   category: { type: String, enum: ['R', 'I', 'A', 'S', 'E', 'C'], required: true },
+  test: { type: String, required: true, default: 'RIASEC' },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -21,28 +22,34 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ['student', 'admin'], default: 'student' },
   hasCompletedTest: { type: Boolean, default: false },
-  testResult: {
-    scores: {
-      R: Number,
-      I: Number,
-      A: Number,
-      S: Number,
-      E: Number,
-      C: Number
-    },
-    topThree: [String],
-    primaryCareer: String,
-    completedAt: Date
-  }
+  // keep array of per-test results (align with server schema)
+  testResults: [
+    {
+      test: String,
+      scores: {
+        R: Number,
+        I: Number,
+        A: Number,
+        S: Number,
+        E: Number,
+        C: Number
+      },
+      topThree: [String],
+      primaryCareer: String,
+      completedAt: Date
+    }
+  ]
 });
 
 const Question = mongoose.model('Question', questionSchema);
 const User = mongoose.model('User', userSchema);
 
 // RIASEC Questions mapped from the PDF
+// We'll include a `test` property to group questions into test subjects
 const questions = [
-  { questionNumber: 1, text: "I like to work on cars", category: "R" },
-  { questionNumber: 2, text: "I like to do puzzles", category: "I" },
+  // RIASEC questions (42)
+  { questionNumber: 1, text: "I like to work on cars", category: "R", test: 'RIASEC' },
+  { questionNumber: 2, text: "I like to do puzzles", category: "I", test: 'RIASEC' },
   { questionNumber: 3, text: "I am good at working independently", category: "A" },
   { questionNumber: 4, text: "I like to work in teams", category: "S" },
   { questionNumber: 5, text: "I am an ambitious person, I set goals for myself", category: "E" },
@@ -82,7 +89,17 @@ const questions = [
   { questionNumber: 39, text: "I'm good at math", category: "A" },
   { questionNumber: 40, text: "I like helping people", category: "S" },
   { questionNumber: 41, text: "I like to draw", category: "E" },
-  { questionNumber: 42, text: "I like to give speeches", category: "C" }
+  { questionNumber: 42, text: "I like to give speeches", category: "C" , test: 'RIASEC'}
+  
+  // Aptitude test (sample questions)
+  ,{ questionNumber: 1, text: "I can solve basic algebraic equations", category: "A", test: 'Aptitude' },
+  { questionNumber: 2, text: "I can quickly identify patterns in numbers", category: "A", test: 'Aptitude' },
+  { questionNumber: 3, text: "I enjoy logical puzzles and brainteasers", category: "A", test: 'Aptitude' },
+
+  // Personality test (sample questions)
+  { questionNumber: 1, text: "I enjoy meeting new people", category: "S", test: 'Personality' },
+  { questionNumber: 2, text: "I prefer planning ahead to being spontaneous", category: "C", test: 'Personality' },
+  { questionNumber: 3, text: "I feel comfortable taking the lead in group situations", category: "E", test: 'Personality' }
 ];
 
 async function seedDatabase() {
@@ -92,7 +109,9 @@ async function seedDatabase() {
     console.log('Cleared existing questions');
 
     // Insert questions
-    await Question.insertMany(questions);
+    // Ensure every question has a `test` property (default to 'RIASEC')
+    const prepared = questions.map(q => ({ ...q, test: q.test || 'RIASEC' }));
+    await Question.insertMany(prepared);
     console.log('Inserted 42 RIASEC questions');
 
     // Create default admin account
