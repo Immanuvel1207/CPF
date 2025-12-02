@@ -486,6 +486,12 @@ function TestComponent({ profile, fetchProfile, testKey }) {
         response = testKey ? await axios.get(pubUrl, { params: { test: testKey } }) : await axios.get(pubUrl);
       }
       setQuestions(response.data);
+      // Initialize answers for non-RIASEC tests (checkboxes) so every question is considered answered by default (false)
+      if ((testKey && testKey !== 'RIASEC') && response.data && response.data.length) {
+        const init = {};
+        response.data.forEach(q => { init[q._id] = 0; });
+        setAnswers(init);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error:', error);
@@ -500,6 +506,11 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   const handleSliderChange = (value) => {
     const currentQuestion = questions[currentIndex];
     setAnswers(prev => ({ ...prev, [currentQuestion._id]: value }));
+  };
+
+  const handleCheckboxChange = (checked) => {
+    const currentQuestion = questions[currentIndex];
+    setAnswers(prev => ({ ...prev, [currentQuestion._id]: checked ? 1 : 0 }));
   };
 
   const handleNext = () => {
@@ -596,7 +607,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
 
   const currentQuestion = questions[currentIndex];
   const testTitle = testKey || 'Assessment';
-  const currentAnswer = answers[currentQuestion._id] || 3;
+  const currentAnswer = (testKey === 'RIASEC') ? (answers[currentQuestion._id] ?? 3) : (answers[currentQuestion._id] ?? 0);
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / questions.length) * 100;
 
@@ -634,26 +645,35 @@ function TestComponent({ profile, fetchProfile, testKey }) {
         </div>
 
         <div className="mb-8">
-          <div className="relative px-2">
-            <input
-              type="range"
-              min="1"
-              max="5"
-              step="1"
-              value={currentAnswer}
-              onChange={(e) => handleSliderChange(parseInt(e.target.value))}
-              className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-            />
-            <div className="flex justify-between mt-3">
-              {sliderLabels.map((item) => (
-                <div key={item.value} className="text-center flex-1">
-                  <div className={`text-xs font-medium ${currentAnswer === item.value ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
-                    {item.label}
+          {testKey === 'RIASEC' ? (
+            <div className="relative px-2">
+              <input
+                type="range"
+                min="1"
+                max="5"
+                step="1"
+                value={currentAnswer}
+                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="flex justify-between mt-3">
+                {sliderLabels.map((item) => (
+                  <div key={item.value} className="text-center flex-1">
+                    <div className={`text-xs font-medium ${currentAnswer === item.value ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
+                      {item.label}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={!!currentAnswer} onChange={(e) => handleCheckboxChange(e.target.checked)} className="h-4 w-4" />
+                <span className="text-sm">Mark as applicable / true</span>
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-between items-center pt-4 border-t">
@@ -788,6 +808,9 @@ function AdminDashboard() {
 
 function StudentsManagement() {
   const [students, setStudents] = useState([]);
+  const [showAddStudent, setShowAddStudent] = useState(false);
+  const [newStudent, setNewStudent] = useState({ rollNumber: '', name: '', year: '', password: '' });
+  const [studentFile, setStudentFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewingStudent, setViewingStudent] = useState(null);
   const [tests, setTests] = useState([]);
@@ -853,6 +876,37 @@ function StudentsManagement() {
       notify('Failed to reset assessment', 'error');
     }
   };
+
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = { rollNumber: newStudent.rollNumber, name: newStudent.name, password: newStudent.password || 'student', year: newStudent.year };
+      const res = await axios.post(`${API_URL}/admin/students`, payload);
+      setStudents(prev => [res.data, ...prev]);
+      setNewStudent({ rollNumber: '', name: '', year: '', password: '' });
+      setShowAddStudent(false);
+      notify('Student added', 'success');
+    } catch (err) {
+      notify(err.response?.data?.error || 'Failed to add student', 'error');
+    }
+  };
+
+  const handleStudentFileChange = (e) => {
+    setStudentFile(e.target.files[0]);
+  };
+
+  const handleUploadStudents = async () => {
+    if (!studentFile) return notify('Select a file first', 'error');
+    const fd = new FormData();
+    fd.append('file', studentFile);
+    try {
+      const res = await axios.post(`${API_URL}/admin/students/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      notify('Upload complete', 'success');
+      fetchStudents();
+    } catch (err) {
+      notify(err.response?.data?.error || 'Upload failed', 'error');
+    }
+  };
   const downloadResult = (student, result) => {
     const report = `CAREER ASSESSMENT REPORT\n\nStudent Information:\n- Name: ${student.name}\n- Roll Number: ${student.rollNumber}\n- Assessment Date: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nRecommended Careers:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}`;
 
@@ -877,7 +931,8 @@ function StudentsManagement() {
     <div>
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <h2 className="text-2xl font-bold mb-4">Student Management</h2>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="grid grid-cols-3 gap-4">
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
             <p className="text-xs font-semibold text-blue-700">TOTAL STUDENTS</p>
             <p className="text-3xl font-bold text-blue-600">{students.length}</p>
@@ -890,7 +945,27 @@ function StudentsManagement() {
             <p className="text-xs font-semibold text-yellow-700">PENDING</p>
             <p className="text-3xl font-bold text-yellow-600">{students.filter(s => !s.hasCompletedTest).length}</p>
           </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex gap-2 items-center">
+              <input type="file" accept=".xlsx,.csv" onChange={handleStudentFileChange} className="text-sm" />
+              <button onClick={handleUploadStudents} className="px-4 py-2 bg-green-500 text-white rounded-lg">Upload Students</button>
+            </div>
+            <button onClick={() => setShowAddStudent(s => !s)} className={`px-5 py-2 rounded-lg font-semibold ${showAddStudent ? 'bg-gray-600 text-white' : 'bg-indigo-600 text-white'}`}>{showAddStudent ? 'Cancel' : '+ Add Student'}</button>
+          </div>
         </div>
+
+        {showAddStudent && (
+          <form onSubmit={handleAddStudent} className="bg-indigo-50 p-4 rounded-lg mb-4 grid grid-cols-4 gap-3">
+            <input required value={newStudent.rollNumber} onChange={(e) => setNewStudent({...newStudent, rollNumber: e.target.value})} placeholder="Roll Number" className="px-3 py-2 border rounded" />
+            <input required value={newStudent.name} onChange={(e) => setNewStudent({...newStudent, name: e.target.value})} placeholder="Name" className="px-3 py-2 border rounded" />
+            <input value={newStudent.year} onChange={(e) => setNewStudent({...newStudent, year: e.target.value})} placeholder="Year (optional)" className="px-3 py-2 border rounded" />
+            <input value={newStudent.password} onChange={(e) => setNewStudent({...newStudent, password: e.target.value})} placeholder="Password (default: student)" className="px-3 py-2 border rounded" />
+            <div className="col-span-4 text-right">
+              <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Add Student</button>
+            </div>
+          </form>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -1057,6 +1132,7 @@ function QuestionsManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState({ questionNumber: '', text: '', category: 'R', test: 'RIASEC' });
+  const [questionFile, setQuestionFile] = useState(null);
   const [tests, setTests] = useState([]);
   const [selectedTest, setSelectedTest] = useState('RIASEC');
   const { notify, confirm } = useNotification();
@@ -1165,6 +1241,29 @@ function QuestionsManagement() {
                   </button>
                 ))}
               </div>
+              <input type="file" accept=".xlsx,.csv" onChange={(e) => setQuestionFile(e.target.files[0])} className="hidden md:block" />
+              <button onClick={() => {
+                // trigger file selection on small screens
+                if (!questionFile) return document.querySelector('input[type=file]').click();
+              }} className="hidden md:block px-3 py-2 rounded bg-gray-100 text-sm">Select file</button>
+
+              <button onClick={async () => {
+                if (!questionFile) return notify('Select a file first', 'error');
+                const fd = new FormData();
+                fd.append('file', questionFile);
+                // pass selected test so rows missing test can be defaulted
+                fd.append('test', selectedTest || formData.test || 'RIASEC');
+                try {
+                  const res = await axios.post(`${API_URL}/admin/questions/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                  notify('Questions uploaded successfully', 'success');
+                  fetchQuestions();
+                } catch (err) {
+                  notify(err.response?.data?.error || 'Upload failed', 'error');
+                }
+              }} className={`px-5 py-2 rounded-lg font-semibold ${showForm ? 'bg-gray-600 text-white' : 'bg-green-500 text-white'}`}>
+                Upload Questions
+              </button>
+
               <button
                 onClick={() => {
                   setShowForm(!showForm);

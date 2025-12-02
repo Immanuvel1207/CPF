@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['student', 'admin'], default: 'student' },
+  year: { type: Number },  
   hasCompletedTest: { type: Boolean, default: false },
   // keep array of per-test results (align with server schema)
   testResults: [

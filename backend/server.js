@@ -3,10 +3,14 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const XLSX = require('xlsx');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const JWT_SECRET = 'choosekonguengineeringcollegeforbestfuture';
 const MONGODB_URI = 'mongodb://localhost:27017/mba-career-assessment';
@@ -22,6 +26,7 @@ mongoose.connect(MONGODB_URI, {
 const userSchema = new mongoose.Schema({
   rollNumber: { type: String, required: true, unique: true },
   name: { type: String, required: true },
+  year: { type: String },
   password: { type: String, required: true },
   role: { type: String, enum: ['student', 'admin'], default: 'student' },
   hasCompletedTest: { type: Boolean, default: false },
@@ -299,11 +304,20 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
     const questions = await Question.find(filter);
     const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
     
-    // Calculate scores: Only count if answer >= 4 (Agree or Strongly Agree)
+    // Calculate scores
+    // - RIASEC questions: likert scale (1-5) -> count when answer >= 4
+    // - Non-RIASEC tests: answers are treated boolean/checkbox-like; count truthy values
     questions.forEach(q => {
       const answerValue = answers[q._id.toString()];
-      if (answerValue >= 4) {
-        scores[q.category] += 1;
+      if (q.test === 'RIASEC') {
+        if (typeof answerValue === 'number' && answerValue >= 4) {
+          scores[q.category] += 1;
+        }
+      } else {
+        // Accept boolean true or numeric 1 / string '1' as positive
+        if (answerValue === true || answerValue === 1 || answerValue === '1' || Number(answerValue) > 0) {
+          scores[q.category] += 1;
+        }
       }
     });
     
@@ -416,6 +430,113 @@ app.post('/api/admin/students/:id/reset-assessment', authenticateToken, isAdmin,
     res.json({ message: 'All assessments reset successfully', user: safeUser });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: create single student (admin-only)
+app.post('/api/admin/students', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { rollNumber, name, password, year } = req.body;
+    if (!rollNumber || !name || !password) {
+      return res.status(400).json({ error: 'Missing required fields: rollNumber, name, password' });
+    }
+
+    const existing = await User.findOne({ rollNumber });
+    if (existing) return res.status(409).json({ error: 'Student with this rollNumber already exists' });
+
+    const hashed = await bcrypt.hash(password, 10);
+    const user = new User({ rollNumber, name, password: hashed, role: 'student', year });
+    await user.save();
+    const safe = user.toObject();
+    delete safe.password;
+    res.status(201).json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: bulk upload students via Excel/CSV (multipart/form-data, file field = 'file')
+app.post('/api/admin/students/upload', authenticateToken, isAdmin, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+
+    const results = { created: 0, updated: 0, skipped: 0, errors: [] };
+    // We'll perform an existence-check and upsert in a single pass to count accurately
+    for (const [i, row] of rows.entries()) {
+      const norm = {};
+      Object.keys(row).forEach(k => { norm[k.toString().toLowerCase().trim()] = row[k]; });
+      const rollNumber = (norm.rollnumber || norm.roll_number || norm.roll) && String(norm.rollnumber || norm.roll_number || norm.roll).trim();
+      const name = (norm.name && String(norm.name).trim()) || null;
+      const year = (norm.year && String(norm.year).trim()) || undefined;
+      const password = (norm.password && String(norm.password)) || 'student';
+
+      if (!rollNumber || !name) { results.skipped++; continue; }
+
+      const existed = await User.findOne({ rollNumber });
+      const hashed = await bcrypt.hash(password, 10);
+      await User.findOneAndUpdate({ rollNumber }, { rollNumber, name, password: hashed, year, role: 'student' }, { upsert: true, new: true, setDefaultsOnInsert: true });
+      if (existed) results.updated++; else results.created++;
+    }
+
+    res.json({ message: 'Upload complete', details: results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: bulk upload questions via Excel/CSV (multipart/form-data, file field = 'file')
+app.post('/api/admin/questions/upload', authenticateToken, isAdmin, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+
+    const results = { created: 0, updated: 0, skipped: 0, errors: [] };
+    for (const [i, row] of rows.entries()) {
+      const norm = {};
+      Object.keys(row).forEach(k => { norm[k.toString().toLowerCase().trim()] = row[k]; });
+      const qnum = norm.questionnumber || norm.question_number || norm['#'] || norm.qnum || norm.q;
+      const text = (norm.text && String(norm.text).trim()) || null;
+      const category = (norm.category && String(norm.category).trim()) || null;
+      const testKey = (norm.test && String(norm.test).trim()) || req.body.test || 'RIASEC';
+
+      if (!qnum || !text || !category) {
+        results.skipped++;
+        results.errors.push({ row: i + 2, reason: 'missing questionNumber/text/category' });
+        continue;
+      }
+
+      // Validate category for RIASEC-style questions
+      const cat = String(category).toUpperCase();
+      if (!['R','I','A','S','E','C'].includes(cat)) {
+        results.skipped++;
+        results.errors.push({ row: i + 2, reason: `invalid category ${category}` });
+        continue;
+      }
+
+      // upsert based on questionNumber + test
+      const existing = await Question.findOne({ questionNumber: Number(qnum), test: testKey });
+      if (existing) {
+        existing.text = text;
+        existing.category = cat;
+        existing.test = testKey;
+        await existing.save();
+        results.updated++;
+      } else {
+        await Question.create({ questionNumber: Number(qnum), text, category: cat, test: testKey });
+        results.created++;
+      }
+    }
+
+    res.json({ message: 'Questions upload complete', details: results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
