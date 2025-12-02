@@ -321,7 +321,7 @@ function TestsList({ onSelect }) {
 }
 
 function StudentHome({ profile }) {
-  if (!profile) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-10 w-10 border-b-4 border-indigo-600"></div></div>;
+  const [openResult, setOpenResult] = useState(null);
 
   const careerData = {
     'R': { name: 'Realistic', color: 'bg-blue-500', desc: 'Hands-on work with tools and machinery' },
@@ -331,21 +331,13 @@ function StudentHome({ profile }) {
     'E': { name: 'Enterprising', color: 'bg-orange-500', desc: 'Leadership and entrepreneurship' },
     'C': { name: 'Conventional', color: 'bg-gray-500', desc: 'Organized and detail-oriented' }
   };
-
+  if (!profile) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-10 w-10 border-b-4 border-indigo-600"></div></div>;
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Your Career Portal</h2>
         <p className="text-gray-600 text-sm">Based on the RIASEC (Holland Code) career assessment model</p>
-        
-        {/* pick the most recent test result (if any) */}
-        {/**/}
-        
-        {/* derive latest result for display */}
-        {/**/}
-        
-        
-        
+
         <div className="mt-4">
           {profile.hasCompletedTest ? (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
@@ -367,59 +359,108 @@ function StudentHome({ profile }) {
         </div>
       </div>
 
-      {/* display latest result if available */}
-      {profile.hasCompletedTest && profile.testResults && profile.testResults.length > 0 && (
-        <>
+      {/* attractive primary career card */}
+      {profile.hasCompletedTest && profile.testResults && profile.testResults.length > 0 && (() => {
+        const latest = profile.testResults[profile.testResults.length - 1];
+        const primaryCode = latest.topThree?.[0]?.split(' - ')[0] || 'R';
+        const primaryShort = primaryCode;
+        const primaryLabel = latest.primaryCareer || `${primaryCode} - ${careerData[primaryCode]?.name}`;
+        const desc = careerData[primaryCode]?.desc || '';
+        return (
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-            <h3 className="text-xl font-bold mb-4">Your Career Profile</h3>
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-4">
-              <p className="text-3xl font-bold mb-1">{profile.testResults[profile.testResults.length - 1].primaryCareer}</p>
-              <p className="text-sm text-white/90">{careerData[profile.testResults[profile.testResults.length - 1].topThree[0]?.split(' ')[0]]?.desc}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {profile.testResults[profile.testResults.length - 1].topThree.slice(0, 3).map((area, idx) => (
-                <div key={idx} className="bg-white/10 backdrop-blur rounded-lg p-3 text-center">
-                  <p className="text-xs font-semibold mb-1">#{idx + 1}</p>
-                  <p className="text-sm font-bold">{area.split(' - ')[0]}</p>
+            <div className="flex items-start gap-6">
+              <div className="w-24 h-24 rounded-lg bg-white/10 flex items-center justify-center text-4xl font-bold">{primaryShort}</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-3xl font-bold">{primaryLabel}</h3>
+                    <p className="text-sm opacity-90 mt-1">{desc}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs opacity-90">Top Match</div>
+                    <div className="text-2xl font-semibold mt-1">#{latest.topThree?.length ? 1 : '-'}</div>
+                  </div>
                 </div>
-              ))}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(latest.recommendedCareers || []).slice(0,6).map((c, i) => (
+                    <div key={i} className="px-3 py-1 bg-white/20 rounded-full text-sm">{c}</div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
+        );
+      })()}
 
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h4 className="text-xl font-bold mb-4">Recommended Careers</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {profile.testResults[profile.testResults.length - 1].recommendedCareers?.map((career, idx) => (
-                <div key={idx} className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
-                  <p className="text-sm font-medium text-indigo-800">{career}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h4 className="text-xl font-bold mb-4">Score Breakdown</h4>
-            {Object.entries(profile.testResults[profile.testResults.length - 1].scores).sort(([,a], [,b]) => b - a).map(([code, score]) => {
+      {/* top three breakdown with attractive bars */}
+      {profile.testResults && profile.testResults.length > 0 && (() => {
+        const latest = profile.testResults[profile.testResults.length - 1];
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Object.entries(latest.scores).sort(([,a],[,b])=>b-a).slice(0,3).map(([code, score]) => {
               const career = careerData[code];
-              const maxScore = 7;
-              const percentage = (score / maxScore) * 100;
+              const max = 7;
+              const pct = Math.round((score / max) * 100);
               return (
-                <div key={code} className="mb-3">
-                  <div className="flex justify-between mb-1 text-sm">
-                    <span className="font-semibold">{code} - {career.name}</span>
-                    <span className="font-semibold">{score}/{maxScore}</span>
+                <div key={code} className="bg-white rounded-xl shadow p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-gray-500">{career.name}</div>
+                      <div className="text-xl font-bold mt-1">{score}/{max}</div>
+                    </div>
+                    <div className="w-24 text-right">
+                      <div className="text-sm font-semibold">{pct}%</div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 mt-2">
+                        <div className={`${career.color} h-3 rounded-full`} style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div className={`${career.color} h-3 rounded-full transition-all`} style={{ width: `${percentage}%` }}></div>
-                  </div>
+                  <p className="text-sm text-gray-500 mt-3">{career.desc}</p>
                 </div>
               );
             })}
           </div>
-        </>
+        );
+      })()}
+
+      {/* Test history: show all saved test results */}
+      {profile.testResults && profile.testResults.length > 0 && (
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h4 className="text-xl font-bold mb-4">Test History</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {profile.testResults.slice().reverse().map((r, idx) => (
+              <div key={idx} className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-semibold">{r.test} — {r.primaryCareer}</div>
+                    <div className="text-sm text-gray-500">Completed: {new Date(r.completedAt).toLocaleString()}</div>
+                    <div className="mt-2 text-sm">Top: {r.topThree?.map(t => t.split(' - ')[0]).join(', ')}</div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button onClick={() => downloadResultForUser(r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold">Download</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
+}
+
+function downloadResultForUser(result, profile) {
+  // profile is optional; if not passed, we won't include user info
+  const report = `CAREER ASSESSMENT REPORT\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nRecommended Careers:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}\n\nCompleted At: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}`;
+
+  const blob = new Blob([report], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${result.test || 'result'}_career_report.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function TestComponent({ profile, fetchProfile, testKey }) {
@@ -749,10 +790,12 @@ function StudentsManagement() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewingStudent, setViewingStudent] = useState(null);
+  const [tests, setTests] = useState([]);
   const { notify, confirm } = useNotification();
 
   useEffect(() => {
     fetchStudents();
+    fetchTests();
   }, []);
 
   const fetchStudents = async () => {
@@ -762,6 +805,16 @@ function StudentsManagement() {
       setLoading(false);
     } catch (error) {
       setLoading(false);
+    }
+  };
+
+  const fetchTests = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/tests`);
+      setTests(res.data || []);
+    } catch (err) {
+      // fallback to known tests if needed
+      setTests([{ key: 'RIASEC', name: 'RIASEC' }]);
     }
   };
 
@@ -784,6 +837,18 @@ function StudentsManagement() {
       await axios.post(`${API_URL}/admin/students/${id}/reset-assessment`);
       fetchStudents();
       notify('Assessment reset successfully', 'success');
+    } catch (error) {
+      notify('Failed to reset assessment', 'error');
+    }
+  };
+
+  const handleResetAssessmentForTest = async (id, name, testKey) => {
+    const ok = await confirm(`Reset assessment for ${name} (${testKey})?`);
+    if (!ok) return;
+    try {
+      await axios.post(`${API_URL}/admin/students/${id}/reset-assessment`, { test: testKey });
+      fetchStudents();
+      notify(`Assessment for ${testKey} reset successfully`, 'success');
     } catch (error) {
       notify('Failed to reset assessment', 'error');
     }
@@ -855,8 +920,28 @@ function StudentsManagement() {
                   </td>
                   <td className="px-4 py-3">
                     {latestResult ? (
-                      <div className="text-xs">
-                        <div className="font-semibold text-indigo-600">{latestResult.primaryCareer?.split(' - ')[0]}</div>
+                      <div className="space-y-2 text-xs">
+                        <div className="grid grid-cols-3 gap-2">
+                          {['R','I','A','S','E','C'].map(code => {
+                            const score = latestResult.scores?.[code] || 0;
+                            const maxScore = 7;
+                            const pct = Math.round((score / maxScore) * 100);
+                            return (
+                              <div key={code} className="flex items-center gap-2">
+                                <div className="w-8 text-sm font-semibold text-indigo-700">{code}</div>
+                                <div className="flex-1">
+                                  <div className="flex justify-between text-xs text-gray-500">
+                                    <div>{pct}%</div>
+                                    <div>{score}/{maxScore}</div>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div className={`bg-indigo-500 h-2 rounded-full`} style={{ width: `${pct}%` }}></div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                         <div className="text-gray-500">Top: {latestResult.topThree?.map(t => t.split(' ')[0]).join(', ')}</div>
                       </div>
                     ) : (
@@ -874,15 +959,22 @@ function StudentsManagement() {
                           Download
                         </button>
                       )}
-                      {student.hasCompletedTest && (
-                        <button
-                          onClick={() => handleResetAssessment(student._id, student.name)}
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs font-semibold"
-                          title="Reset Assessment"
-                        >
-                          Reset
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {tests.map(t => {
+                          const has = (student.testResults || []).some(tr => tr.test === t.key);
+                          return (
+                            <button
+                              key={t.key}
+                              onClick={() => handleResetAssessmentForTest(student._id, student.name, t.key)}
+                              disabled={!has}
+                              className={`px-3 py-1 rounded text-xs font-semibold ${has ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                              title={has ? `Reset ${t.name}` : `No ${t.name} result to reset`}
+                            >
+                              Reset {t.key}
+                            </button>
+                          );
+                        })}
+                      </div>
                       <button
                         onClick={() => setViewingStudent(student)}
                         className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-xs font-semibold"
@@ -917,18 +1009,34 @@ function StudentsManagement() {
               <div className="space-y-3 max-h-72 overflow-auto">
                 {viewingStudent.testResults.map((r, idx) => (
                   <div key={idx} className="p-3 border rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1">
                         <div className="font-semibold">{r.test} — {r.primaryCareer}</div>
                         <div className="text-sm text-gray-500">Completed: {new Date(r.completedAt).toLocaleString()}</div>
+                        <div className="mt-2 text-sm">Top: {r.topThree?.map(t => t.split(' - ')[0]).join(', ')}</div>
+                        <div className="grid grid-cols-3 gap-2 mt-3">
+                          {['R','I','A','S','E','C'].map(code => {
+                            const score = r.scores?.[code] || 0;
+                            const maxScore = 7;
+                            const pct = Math.round((score / maxScore) * 100);
+                            return (
+                              <div key={code} className="p-2 bg-white/50 rounded">
+                                <div className="flex items-center justify-between text-xs text-gray-600">
+                                  <div className="font-semibold">{code}</div>
+                                  <div>{pct}%</div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                  <div className={`bg-indigo-500 h-2 rounded-full`} style={{ width: `${pct}%` }}></div>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">{score}/{maxScore}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex-shrink-0 flex flex-col gap-2">
                         <button onClick={() => downloadResult(viewingStudent, r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold">Download</button>
                       </div>
-                    </div>
-                    <div className="mt-2 text-sm">
-                      <div className="font-semibold">Top Three:</div>
-                      <div>{r.topThree?.join(', ')}</div>
                     </div>
                   </div>
                 ))}
@@ -983,14 +1091,17 @@ function QuestionsManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Ensure `test` is always present in the payload (fallback to selectedTest)
+      const payload = { ...formData, test: formData.test || selectedTest };
       if (editing) {
-        await axios.put(`${API_URL}/questions/${editing._id}`, formData);
+        await axios.put(`${API_URL}/questions/${editing._id}`, payload);
         notify('Updated successfully', 'success');
       } else {
-        await axios.post(`${API_URL}/questions`, formData);
+        await axios.post(`${API_URL}/questions`, payload);
         notify('Added successfully', 'success');
       }
-      setFormData({ questionNumber: '', text: '', category: 'R' });
+      // Reset form but keep the test pre-selected to the current domain
+      setFormData({ questionNumber: '', text: '', category: 'R', test: selectedTest });
       setShowForm(false);
       setEditing(null);
       fetchQuestions();
@@ -1027,7 +1138,31 @@ function QuestionsManagement() {
             <div className="flex items-center gap-3">
               <div className="hidden md:flex gap-2">
                 {tests.map(t => (
-                  <button key={t.key} onClick={() => { setSelectedTest(t.key); setLoading(true); setShowForm(false); setEditing(null); setFormData({ questionNumber: '', text: '', category: 'R', test: t.key }); fetchQuestions(); }} className={`px-4 py-2 rounded-lg ${selectedTest === t.key ? 'bg-indigo-600 text-white' : 'bg-gray-100'}`}>{t.name}</button>
+                  <button
+                    key={t.key}
+                    onClick={() => {
+                      // set selected test and fetch questions for that test immediately (avoid stale selectedTest)
+                      setSelectedTest(t.key);
+                      setLoading(true);
+                      setShowForm(false);
+                      setEditing(null);
+                      setFormData({ questionNumber: '', text: '', category: 'R', test: t.key });
+                      // fetch questions for the explicit test key to avoid race with setSelectedTest
+                      (async (testKey) => {
+                        try {
+                          const resp = await axios.get(`${API_URL}/questions`, { params: { test: testKey } });
+                          setQuestions(resp.data);
+                        } catch (err) {
+                          console.error('Failed to fetch questions for test', testKey, err);
+                        } finally {
+                          setLoading(false);
+                        }
+                      })(t.key);
+                    }}
+                    className={`px-4 py-2 rounded-lg ${selectedTest === t.key ? 'bg-indigo-600 text-white' : 'bg-gray-100'}`}
+                  >
+                    {t.name}
+                  </button>
                 ))}
               </div>
               <button
