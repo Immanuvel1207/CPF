@@ -339,8 +339,11 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
       completedAt: new Date()
     };
     user.testResults.push(newResult);
-    
+    // mark that user has completed at least one test
+    user.hasCompletedTest = true;
     await user.save();
+    // debug: log testResults to help trace unexpected mutations
+    try { console.log('User testResults after submit:', user._id, user.testResults.map(t => t.test)); } catch(e) {}
     
     res.json({
       scores,
@@ -388,14 +391,29 @@ app.delete('/api/admin/students/:id', authenticateToken, isAdmin, async (req, re
 // Reset student assessment only
 app.post('/api/admin/students/:id/reset-assessment', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { 
-        $set: { hasCompletedTest: false, testResults: [] }
-      },
-      { new: true }
-    ).select('-password');
-    res.json({ message: 'Assessment reset successfully', user });
+    // Optional body: { test: 'RIASEC' } to reset only that test
+    const { test } = req.body || {};
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (test) {
+      // Remove only matching test results
+      user.testResults = (user.testResults || []).filter(tr => tr.test !== test);
+      // Update hasCompletedTest depending on remaining results
+      user.hasCompletedTest = (user.testResults && user.testResults.length > 0);
+      await user.save();
+      const safeUser = user.toObject();
+      delete safeUser.password;
+      return res.json({ message: `Assessment for ${test} reset successfully`, user: safeUser });
+    }
+
+    // No specific test provided: clear all results (legacy behavior)
+    user.hasCompletedTest = false;
+    user.testResults = [];
+    await user.save();
+    const safeUser = user.toObject();
+    delete safeUser.password;
+    res.json({ message: 'All assessments reset successfully', user: safeUser });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
