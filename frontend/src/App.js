@@ -397,7 +397,7 @@ function StudentHome({ profile }) {
         const latest = profile.testResults[profile.testResults.length - 1];
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Object.entries(latest.scores).sort(([,a],[,b])=>b-a).slice(0,3).map(([code, score]) => {
+            {Object.entries(latest?.scores || {}).sort(([,a],[,b])=>b-a).slice(0,3).map(([code, score]) => {
               const career = careerData[code];
               const max = 7;
               const pct = Math.round((score / max) * 100);
@@ -508,6 +508,18 @@ function TestComponent({ profile, fetchProfile, testKey }) {
     setAnswers(prev => ({ ...prev, [currentQuestion._id]: value }));
   };
 
+  const handleRangeClick = (e) => {
+    // compute value based on click position so clicking the track sets value even if same as current
+    const el = e.target;
+    const rect = el.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    const min = Number(el.min) || 1;
+    const max = Number(el.max) || 5;
+    const value = Math.round(ratio * (max - min) + min);
+    handleSliderChange(value);
+  };
+
   const handleCheckboxChange = (checked) => {
     const currentQuestion = questions[currentIndex];
     setAnswers(prev => ({ ...prev, [currentQuestion._id]: checked ? 1 : 0 }));
@@ -532,7 +544,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   };
 
   const handleSubmit = async () => {
-    if (Object.keys(answers).length < questions.length) {
+    if (!allAnswered()) {
       notify('Please answer all questions', 'error');
       return;
     }
@@ -549,6 +561,27 @@ function TestComponent({ profile, fetchProfile, testKey }) {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const isAnswered = (q) => {
+    const a = answers[q._id];
+    const t = (q.test || '').toString().toLowerCase();
+    if (t === 'riasec') return a !== undefined;
+    if (t === 'personality') return a !== undefined && a !== 0;
+    if (t === 'aptitude') return a !== undefined && a !== '' && a !== 0 && a !== null;
+    // generic fallback
+    return a !== undefined && a !== 0;
+  };
+
+  const allAnswered = () => {
+    if (!questions || !questions.length) return false;
+    return questions.every(q => isAnswered(q));
+  };
+
+  const jumpTo = (idx) => {
+    const qId = questions[idx]._id;
+    setVisitedQuestions(prev => ({ ...prev, [qId]: true }));
+    setCurrentIndex(idx);
   };
 
   // If the user has already completed this specific test, show completed state
@@ -578,6 +611,44 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   }
 
   if (result) {
+    // Render result differently depending on test type
+    if (testKey === 'Personality') {
+      const total = result.total || result.score || 0;
+      const interpretation = result.interpretation || result.feedback || '';
+      return (
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="bg-green-500 text-white rounded-xl p-8 text-center">
+            <div className="text-6xl mb-3">🎉</div>
+            <h2 className="text-3xl font-bold">Personality Assessment Complete</h2>
+            <div className="text-sm mt-1 opacity-90">Score: {total}</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-xl font-bold mb-4">Interpretation & Feedback</h3>
+            <div className="text-sm text-gray-700 whitespace-pre-line">{interpretation}</div>
+          </div>
+        </div>
+      );
+    }
+
+    if (testKey === 'Aptitude') {
+      const score = result.score || result.correct || 0;
+      const total = result.total || result.totalQuestions || questions.length || 0;
+      return (
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="bg-green-500 text-white rounded-xl p-8 text-center">
+            <div className="text-6xl mb-3">🎉</div>
+            <h2 className="text-3xl font-bold">Aptitude Test Complete</h2>
+            <div className="text-sm mt-1 opacity-90">Score: {score} / {total}</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-xl font-bold mb-4">Summary</h3>
+            <div className="text-sm text-gray-700">You answered {score} out of {total} correctly.</div>
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback / RIASEC-style display
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="bg-green-500 text-white rounded-xl p-8 text-center">
@@ -592,7 +663,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
             <p className="text-2xl font-bold text-indigo-600">{result.primaryCareer}</p>
           </div>
           <div className="space-y-2 mb-4">
-            {result.topThree.map((area, idx) => (
+            {(result.topThree || []).map((area, idx) => (
               <div key={idx} className="bg-gray-50 p-3 rounded-lg">
                 <span className="font-semibold">#{idx + 1}: {area}</span>
               </div>
@@ -601,7 +672,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-bold text-blue-800 mb-2">Recommended Careers</h4>
             <div className="grid grid-cols-2 gap-2">
-              {result.recommendedCareers.map((career, idx) => (
+              {(result.recommendedCareers || []).map((career, idx) => (
                 <div key={idx} className="text-sm text-blue-700">{career}</div>
               ))}
             </div>
@@ -631,7 +702,8 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-5xl mx-auto md:flex md:items-start md:gap-6">
+      <div className="flex-1">
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-xl font-bold">{testTitle}</h2>
@@ -667,7 +739,8 @@ function TestComponent({ profile, fetchProfile, testKey }) {
                 max="5"
                 step="1"
                 value={currentAnswer}
-                onInput={(e) => handleSliderChange(parseInt(e.target.value))}
+                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+                onClick={handleRangeClick}
                 className={`w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${!hasAnswer ? 'range-no-thumb' : ''}`}
               />
               <div className="flex justify-between mt-3">
@@ -679,6 +752,41 @@ function TestComponent({ profile, fetchProfile, testKey }) {
                   </div>
                 ))}
               </div>
+            </div>
+          ) : testKey === 'Personality' ? (
+            <div className="relative px-2">
+              <input
+                type="range"
+                min="1"
+                max="5"
+                step="1"
+                value={currentAnswer}
+                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+                onClick={handleRangeClick}
+                className={`w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${!hasAnswer ? 'range-no-thumb' : ''}`}
+              />
+              <div className="flex justify-between mt-3">
+                {sliderLabels.map((item) => (
+                  <div key={item.value} className="text-center flex-1">
+                    <div className={`text-xs font-medium ${(hasAnswer && currentAnswer === item.value) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
+                      {item.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : testKey === 'Aptitude' ? (
+            <div className="space-y-3">
+              {(currentQuestion.options && currentQuestion.options.length) ? (
+                currentQuestion.options.map((opt, idx) => (
+                  <label key={idx} className="flex items-center gap-3">
+                    <input type="radio" name={`opt_${currentQuestion._id}`} checked={answers[currentQuestion._id] === opt} onChange={() => setAnswers(prev => ({ ...prev, [currentQuestion._id]: opt }))} />
+                    <span className="text-sm">{opt}</span>
+                  </label>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500">No options configured for this aptitude question.</div>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-3">
@@ -702,7 +810,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
           {currentIndex === questions.length - 1 ? (
             <button
               onClick={handleSubmit}
-              disabled={answeredCount < questions.length || submitting}
+              disabled={!allAnswered() || submitting}
               className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-semibold disabled:opacity-50 shadow-md"
             >
               {submitting ? 'Submitting...' : 'Submit Assessment'}
@@ -715,6 +823,26 @@ function TestComponent({ profile, fetchProfile, testKey }) {
               Next →
             </button>
           )}
+        </div>
+      </div>
+      </div>
+      {/* Sidebar: question status */}
+      <div className="w-40 hidden md:block">
+        <div className="bg-white rounded-xl shadow-md p-4 sticky top-24">
+          <h4 className="text-sm font-semibold mb-3">Questions</h4>
+          <div className="grid grid-cols-4 gap-2">
+            {questions.map((q, idx) => {
+              const answered = isAnswered(q);
+              const visited = visitedQuestions[q._id];
+              const status = answered ? 'answered' : (visited ? 'visited-unanswered' : 'unvisited');
+              const bg = status === 'answered' ? 'bg-green-500 text-white' : (status === 'visited-unanswered' ? 'bg-red-400 text-white' : 'bg-white text-gray-700 border');
+              return (
+                <button key={q._id} onClick={() => jumpTo(idx)} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${bg}` } title={`Q ${q.questionNumber}`}>
+                  {q.questionNumber}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -1127,7 +1255,7 @@ function QuestionsManagement() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState({ questionNumber: '', text: '', category: 'R', test: 'RIASEC' });
+  const [formData, setFormData] = useState({ questionNumber: '', text: '', category: 'R', test: 'RIASEC', options: '', correctAnswer: '' });
   const [questionFile, setQuestionFile] = useState(null);
   const [tests, setTests] = useState([]);
   const [selectedTest, setSelectedTest] = useState('RIASEC');
@@ -1165,6 +1293,11 @@ function QuestionsManagement() {
     try {
       // Ensure `test` is always present in the payload (fallback to selectedTest)
       const payload = { ...formData, test: formData.test || selectedTest };
+      // If aptitude, normalize options into array and include correctAnswer
+      if ((payload.test === 'Aptitude' || payload.test === 'aptitude') && payload.options) {
+        // split on comma or semicolon and trim
+        payload.options = payload.options.split(/[,;]\s*/).map(s => s.trim()).filter(Boolean);
+      }
       if (editing) {
         await axios.put(`${API_URL}/questions/${editing._id}`, payload);
         notify('Updated successfully', 'success');
@@ -1183,7 +1316,7 @@ function QuestionsManagement() {
   };
 
   const handleEdit = (q) => {
-    setFormData({ questionNumber: q.questionNumber, text: q.text, category: q.category, test: q.test || 'RIASEC' });
+    setFormData({ questionNumber: q.questionNumber, text: q.text, category: q.category, test: q.test || 'RIASEC', options: (q.options || []).join(', '), correctAnswer: q.correctAnswer || '' });
     setEditing(q);
     setShowForm(true);
   };
@@ -1333,6 +1466,15 @@ function QuestionsManagement() {
                 )}
               </select>
             </div>
+            {/* Options + correct answer for Aptitude type */}
+            {(formData.test === 'Aptitude' || formData.test === 'aptitude') && (
+              <div>
+                <label className="block font-semibold mb-1 text-sm">Options (comma or semicolon separated)</label>
+                <input value={formData.options} onChange={(e) => setFormData({...formData, options: e.target.value})} placeholder="Option1, Option2, Option3" className="w-full px-3 py-2 border rounded-lg outline-none" />
+                <label className="block font-semibold mt-3 mb-1 text-sm">Correct Answer (exact option text)</label>
+                <input value={formData.correctAnswer} onChange={(e) => setFormData({...formData, correctAnswer: e.target.value})} placeholder="Correct option text" className="w-full px-3 py-2 border rounded-lg outline-none" />
+              </div>
+            )}
             <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold">
               {editing ? 'Update' : 'Add'} Question
             </button>

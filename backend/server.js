@@ -53,9 +53,13 @@ const userSchema = new mongoose.Schema({
 const questionSchema = new mongoose.Schema({
   questionNumber: { type: Number, required: true },
   text: { type: String, required: true },
-  category: { type: String, enum: ['R', 'I', 'A', 'S', 'E', 'C'], required: true },
+  // category is required only for RIASEC questions; other tests (Aptitude/Personality) may not have a category
+  category: { type: String, enum: ['R', 'I', 'A', 'S', 'E', 'C'], required: function() { return (this.test || 'RIASEC') === 'RIASEC'; } },
   // which test this question belongs to (e.g. 'RIASEC', 'Aptitude')
   test: { type: String, required: true, default: 'RIASEC' },
+  // optional fields for other test types
+  options: { type: [String], default: undefined },
+  correctAnswer: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -323,7 +327,7 @@ app.delete('/api/questions/:id', authenticateToken, isAdmin, async (req, res) =>
   }
 });
 
-// Test Submission - Fixed calculation based on PDF (1=Disagree, 5=Agree gives points)
+// Test Submission - handle RIASEC, Personality (likert), Aptitude (mcq) and generic types
 app.post('/api/submit-test', authenticateToken, async (req, res) => {
   try {
     const { answers, test } = req.body;
@@ -331,71 +335,132 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
     // Only consider questions for the given test (fallback to all if not provided)
     const filter = {};
     if (test) filter.test = test;
-    const questions = await Question.find(filter);
-    const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
-    
-    // Calculate scores
-    // - RIASEC questions: likert scale (1-5) -> count when answer >= 4
-    // - Non-RIASEC tests: answers are treated boolean/checkbox-like; count truthy values
-    questions.forEach(q => {
-      const answerValue = answers[q._id.toString()];
-      if (q.test === 'RIASEC') {
-        if (typeof answerValue === 'number' && answerValue >= 4) {
-          scores[q.category] += 1;
+    const questions = await Question.find(filter).sort({ questionNumber: 1 });
+
+    const user = await User.findById(req.user.id);
+    user.testResults = user.testResults || [];
+
+    // RIASEC handling: sum likert values per category (1..5 per question)
+    const detectedTest = (test || (questions[0] && questions[0].test) || '').toString().toUpperCase();
+    if (detectedTest === 'RIASEC') {
+      const scores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
+      questions.forEach(q => {
+        const answerValue = Number(answers[q._id.toString()] || 0);
+        if (!isNaN(answerValue) && q.category) {
+          // sum the numeric value (1..5) into the respective category
+          scores[q.category] = (scores[q.category] || 0) + answerValue;
         }
+      });
+
+      const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3);
+      const topThree = sortedScores.map(([letter]) => letter);
+      const primaryCareer = topThree[0] || 'R';
+      const careerMap = { R: 'Realistic', I: 'Investigative', A: 'Artistic', S: 'Social', E: 'Enterprising', C: 'Conventional' };
+      const recommendedCareers = careerRecommendations[primaryCareer] || [];
+
+      const newResult = {
+        test: 'RIASEC',
+        scores,
+        topThree: topThree.map(code => `${code} - ${careerMap[code]}`),
+        primaryCareer: `${primaryCareer} - ${careerMap[primaryCareer]}`,
+        recommendedCareers,
+        completedAt: new Date()
+      };
+      user.testResults.push(newResult);
+      user.hasCompletedTest = true;
+      await user.save();
+
+      return res.json({
+        fullResult: newResult,
+        scores,
+        topThree: newResult.topThree,
+        primaryCareer: newResult.primaryCareer,
+        recommendedCareers
+      });
+    }
+
+    // Personality handling - likert responses 1..5, provide WEMWBS/SWEMWBS style interpretation
+    if (detectedTest === 'PERSONALITY') {
+      let total = 0;
+      questions.forEach(q => {
+        const v = Number(answers[q._id.toString()] || 0);
+        if (!isNaN(v)) total += v;
+      });
+
+      const qCount = questions.length;
+      let interpretation = '';
+      if (qCount >= 14) {
+        if (total <= 40) interpretation = 'Very low';
+        else if (total <= 44) interpretation = 'Below average';
+        else if (total <= 59) interpretation = 'Average';
+        else interpretation = 'Above Average';
       } else {
-        // Accept boolean true or numeric 1 / string '1' as positive
-        if (answerValue === true || answerValue === 1 || answerValue === '1' || Number(answerValue) > 0) {
-          scores[q.category] += 1;
+        // 7-item
+        if (total <= 17) interpretation = 'Very low';
+        else if (total <= 20) interpretation = 'Below average';
+        else if (total <= 27) interpretation = 'Average';
+        else interpretation = 'Above Average';
+      }
+
+      const feedbackMessages = {
+        'Very low': `This questionnaire measures mental wellbeing, which includes both positive feelings like happiness and positive functioning like problem solving and optimism. This score is in the very low range, suggesting there may be significant difficulties in this area compared to peers. Recovery is likely to benefit from help from a doctor or health professional and the individual may already be in contact with health services. There are also evidence-based steps everyone can take to support mental health for example:\n• Connect with others – talk to sympathetic people about how you are feeling now; \n• Be active – exercise changes our emotional states; \n• Find something that calms you or makes you feel happy and do it everyday; \n• Do something that helps someone else – this could include volunteering; \n• Keep learning - remembering that we can develop and grow changes our outlook on life;`,
+        'Below average': `This questionnaire measures mental wellbeing, which includes both positive feelings like happiness and positive functioning like problems solving and optimism. This score is in the low range, suggesting that the individual could feel significantly better if they took some action to improve mental wellbeing. There are evidence-based steps we can all take to support mental health for example: \n• Connect with others – talk to sympathetic people about how you are feeling now; \n• Find something that calms you or makes you feel happy and do it everyday; \n• Do something that helps someone else – this could include volunteering; \n• Be active – exercise changes our emotional states; \n• Keep learning - remembering that we can develop and grow changes our outlook on life;`,
+        'Average': `This questionnaire measures mental wellbeing, which includes both positive feelings like happiness and positive functioning like problem solving and optimism. This score is in the normal range, suggesting that this individual is doing OK compared to peers. However, someone with a score in this range could gain much in terms of resilience and quality of life by taking action to improve mental wellbeing. There are evidence-based steps we can all take to support mental health for example: \n• Do something that calms you or makes you feel happy everyday; \n• Do something that helps someone else – this could include volunteering; \n• Be active – exercise changes our emotional states; \n• Keep learning - remembering that we can develop and grow changes our outlook on life; \n• Connect with others – talk to sympathetic people about how you are feeling now;`,
+        'Above Average': `This questionnaire measures mental wellbeing, which includes both positive feelings like happiness and positive functioning like problem solving and optimism. This score is in the above-average range, suggesting a high level of mental wellbeing compared to peers. To help maintain this level of mental wellbeing in the face of life’s ups and downs there are evidence-based steps we can all take for example: \n• Do something that calms you or makes you feel happy everyday; \n• Keep learning - remembering that we can develop and grow changes our outlook on life; \n• Be active – exercise changes our emotional states; \n• Do something that helps someone else – this could include volunteering; \n• Connect with others – talk to sympathetic people about how you are feeling now;`
+      };
+
+      const newResult = {
+        test: 'Personality',
+        score: total,
+        questionCount: qCount,
+        interpretation,
+        feedback: feedbackMessages[interpretation] || '',
+        completedAt: new Date()
+      };
+      user.testResults.push(newResult);
+      user.hasCompletedTest = true;
+      await user.save();
+
+      return res.json({ fullResult: newResult, score: total, questionCount: qCount, interpretation, feedback: feedbackMessages[interpretation] || '' });
+    }
+
+    // Aptitude handling - compare answers to stored correctAnswer
+    if (detectedTest === 'APTITUDE') {
+      let correct = 0;
+      questions.forEach(q => {
+        const provided = answers[q._id.toString()];
+        if (typeof provided !== 'undefined' && q.correctAnswer !== undefined && q.correctAnswer !== null) {
+          // compare as strings for robustness
+          if (String(provided).trim() === String(q.correctAnswer).trim()) correct += 1;
         }
+      });
+
+      const newResult = {
+        test: 'Aptitude',
+        score: correct,
+        total: questions.length,
+        completedAt: new Date()
+      };
+      user.testResults.push(newResult);
+      user.hasCompletedTest = true;
+      await user.save();
+
+      return res.json({ fullResult: newResult, score: correct, total: questions.length });
+    }
+
+    // Generic fallback: treat answers as truthy counts per category when available
+    const genericScores = {};
+    questions.forEach(q => {
+      const val = answers[q._id.toString()];
+      if (val === true || val === 1 || val === '1' || Number(val) > 0) {
+        if (q.category) genericScores[q.category] = (genericScores[q.category] || 0) + 1;
       }
     });
-    
-    // Get top three categories
-    const sortedScores = Object.entries(scores)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3);
-    
-    const topThree = sortedScores.map(([letter]) => letter);
-    const primaryCareer = topThree[0];
-    
-    const careerMap = {
-      R: 'Realistic',
-      I: 'Investigative',
-      A: 'Artistic',
-      S: 'Social',
-      E: 'Enterprising',
-      C: 'Conventional'
-    };
-    
-    // Get career recommendations
-    const recommendedCareers = careerRecommendations[primaryCareer] || [];
-    
-    const user = await User.findById(req.user.id);
-    // Append per-test result instead of overwriting a single result
-    user.testResults = user.testResults || [];
-    const newResult = {
-      test: test || 'RIASEC',
-      scores,
-      topThree: topThree.map(code => `${code} - ${careerMap[code]}`),
-      primaryCareer: `${primaryCareer} - ${careerMap[primaryCareer]}`,
-      recommendedCareers,
-      completedAt: new Date()
-    };
+    const newResult = { test: test || 'Unknown', scores: genericScores, completedAt: new Date() };
     user.testResults.push(newResult);
-    // mark that user has completed at least one test
     user.hasCompletedTest = true;
     await user.save();
-    // debug: log testResults to help trace unexpected mutations
-    try { console.log('User testResults after submit:', user._id, user.testResults.map(t => t.test)); } catch(e) {}
-    
-    res.json({
-      scores,
-      topThree: topThree.map(code => `${code} - ${careerMap[code]}`),
-      primaryCareer: `${primaryCareer} - ${careerMap[primaryCareer]}`,
-      recommendedCareers,
-      fullResult: newResult
-    });
+    return res.json({ fullResult: newResult });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -533,33 +598,66 @@ app.post('/api/admin/questions/upload', authenticateToken, isAdmin, upload.singl
       Object.keys(row).forEach(k => { norm[k.toString().toLowerCase().trim()] = row[k]; });
       const qnum = norm.questionnumber || norm.question_number || norm['#'] || norm.qnum || norm.q;
       const text = (norm.text && String(norm.text).trim()) || null;
-      const category = (norm.category && String(norm.category).trim()) || null;
+      const rawCategory = (norm.category && String(norm.category).trim()) || null;
       const testKey = (norm.test && String(norm.test).trim()) || req.body.test || 'RIASEC';
 
-      if (!qnum || !text || !category) {
+      if (!qnum || !text) {
         results.skipped++;
-        results.errors.push({ row: i + 2, reason: 'missing questionNumber/text/category' });
+        results.errors.push({ row: i + 2, reason: 'missing questionNumber/text' });
         continue;
       }
 
-      // Validate category for RIASEC-style questions
-      const cat = String(category).toUpperCase();
-      if (!['R','I','A','S','E','C'].includes(cat)) {
-        results.skipped++;
-        results.errors.push({ row: i + 2, reason: `invalid category ${category}` });
-        continue;
+      let cat = null;
+      if ((testKey || '').toUpperCase() === 'RIASEC') {
+        if (!rawCategory) {
+          results.skipped++;
+          results.errors.push({ row: i + 2, reason: 'missing category for RIASEC question' });
+          continue;
+        }
+        cat = String(rawCategory).toUpperCase();
+        if (!['R','I','A','S','E','C'].includes(cat)) {
+          results.skipped++;
+          results.errors.push({ row: i + 2, reason: `invalid category ${rawCategory}` });
+          continue;
+        }
+      }
+
+      // Parse options/correct answer for Aptitude questions
+      let optionsArr = undefined;
+      let correctAnswer = undefined;
+      if ((testKey || '').toUpperCase() === 'APTITUDE') {
+        // look for option1..option10 or a single 'options' cell (comma separated)
+        const opts = [];
+        for (let o = 1; o <= 10; o++) {
+          const key = 'option' + o;
+          if (norm[key]) opts.push(String(norm[key]).trim());
+        }
+        if (opts.length === 0 && norm.options) {
+          const raw = String(norm.options || '').trim();
+          if (raw) optionsArr = raw.split(/,|;/).map(s => s.trim()).filter(Boolean);
+        } else if (opts.length) {
+          optionsArr = opts;
+        }
+
+        correctAnswer = (norm.correctanswer || norm.answer || norm.correct) ? String(norm.correctanswer || norm.answer || norm.correct).trim() : undefined;
       }
 
       // upsert based on questionNumber + test
       const existing = await Question.findOne({ questionNumber: Number(qnum), test: testKey });
       if (existing) {
         existing.text = text;
-        existing.category = cat;
+        if (cat) existing.category = cat;
         existing.test = testKey;
+        if (typeof optionsArr !== 'undefined') existing.options = optionsArr;
+        if (typeof correctAnswer !== 'undefined') existing.correctAnswer = correctAnswer;
         await existing.save();
         results.updated++;
       } else {
-        await Question.create({ questionNumber: Number(qnum), text, category: cat, test: testKey });
+        const payload = { questionNumber: Number(qnum), text, test: testKey };
+        if (cat) payload.category = cat;
+        if (typeof optionsArr !== 'undefined') payload.options = optionsArr;
+        if (typeof correctAnswer !== 'undefined') payload.correctAnswer = correctAnswer;
+        await Question.create(payload);
         results.created++;
       }
     }
