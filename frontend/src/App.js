@@ -470,6 +470,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [visitedQuestions, setVisitedQuestions] = useState({});
 
   const fetchQuestions = React.useCallback(async () => {
     try {
@@ -514,12 +515,18 @@ function TestComponent({ profile, fetchProfile, testKey }) {
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
+      // Mark current question as visited when moving to next
+      const qId = questions[currentIndex]._id;
+      setVisitedQuestions(prev => ({ ...prev, [qId]: true }));
       setCurrentIndex(currentIndex + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
+      // Mark current question as visited when moving to previous
+      const qId = questions[currentIndex]._id;
+      setVisitedQuestions(prev => ({ ...prev, [qId]: true }));
       setCurrentIndex(currentIndex - 1);
     }
   };
@@ -607,6 +614,8 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   const currentQuestion = questions[currentIndex];
   const testTitle = testKey || 'Assessment';
   const hasAnswer = answers[currentQuestion._id] !== undefined;
+  const isQuestionVisited = visitedQuestions[currentQuestion._id] === true;
+  const showUnansweredWarning = isQuestionVisited && !hasAnswer;
   const currentAnswer = (testKey === 'RIASEC')
     ? (hasAnswer ? answers[currentQuestion._id] : 3)
     : (hasAnswer ? answers[currentQuestion._id] : 0);
@@ -636,13 +645,16 @@ function TestComponent({ profile, fetchProfile, testKey }) {
         <p className="text-xs text-gray-600 mt-2">{answeredCount} of {questions.length} answered</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-8">
+      <div className={`bg-white rounded-xl shadow-md p-8 ${showUnansweredWarning ? 'border-4 border-red-400 bg-red-50' : ''}`}>
         <div className="mb-8">
           <div className="flex items-start gap-3 mb-6">
-            <div className="bg-indigo-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${showUnansweredWarning ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`}>
               {currentQuestion.questionNumber}
             </div>
-            <p className="text-lg font-medium text-gray-800 pt-1">{currentQuestion.text}</p>
+            <div className="flex-1">
+              <p className="text-lg font-medium text-gray-800 pt-1">{currentQuestion.text}</p>
+              {showUnansweredWarning && <p className="text-sm text-red-600 mt-2 font-semibold">⚠️ Please answer this question</p>}
+            </div>
           </div>
         </div>
 
