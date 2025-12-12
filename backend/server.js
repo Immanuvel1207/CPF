@@ -85,12 +85,42 @@ const isAdmin = (req, res, next) => {
 
 // Career recommendations based on RIASEC
 const careerRecommendations = {
-  'R': ['Agriculture', 'Health Assistant', 'Computers', 'Construction', 'Mechanic/Machinist', 'Engineering', 'Food and Hospitality'],
-  'I': ['Marine Biology', 'Engineering', 'Chemistry', 'Zoology', 'Medicine/Surgery', 'Consumer Economics', 'Psychology'],
-  'A': ['Communications', 'Cosmetology', 'Fine and Performing Arts', 'Photography', 'Radio and TV', 'Interior Design', 'Architecture'],
-  'S': ['Counseling', 'Nursing', 'Physical Therapy', 'Travel', 'Advertising', 'Public Relations', 'Education'],
-  'E': ['Fashion Merchandising', 'Real Estate', 'Marketing/Sales', 'Law', 'Political Science', 'International Trade', 'Banking/Finance'],
-  'C': ['Accounting', 'Court Reporting', 'Insurance', 'Administration', 'Medical Records', 'Banking', 'Data Processing']
+  R: [
+    'Building, repairing, assembling',
+    'Operating tools or equipment',
+    'Hands-on experiments and practical work',
+    'Outdoor or physical tasks'
+  ],
+  I: [
+    'Research, analysis, and experimentation',
+    'Logical problem-solving and diagnostics',
+    'Studying data, formulas, or systems',
+    'Reading and exploring new concepts'
+  ],
+  A: [
+    'Designing, drawing, writing, creating',
+    'Visual storytelling, performing, composing',
+    'Brainstorming and idea generation',
+    'Crafting original or aesthetic solutions'
+  ],
+  S: [
+    'Teaching, mentoring, counseling',
+    'Group activities and teamwork',
+    'Organizing events and coordinating people',
+    'Providing guidance and support'
+  ],
+  E: [
+    'Leading teams and projects',
+    'Public speaking or pitching ideas',
+    'Planning, organizing, and negotiating',
+    'Managing people and resources'
+  ],
+  C: [
+    'Data entry, documentation, record-keeping',
+    'Managing schedules, files, and processes',
+    'Maintaining accuracy and quality control',
+    'Organizing information and workflows'
+  ]
 };
 
 // Metadata/descriptions for available tests (used by frontend to show cards)
