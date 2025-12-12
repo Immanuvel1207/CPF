@@ -28,6 +28,42 @@
   color: #61dafb;
 }
 
+/* Base slider thumb styling - always visible by default */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+/* Hide the slider thumb until the user selects a value (when range-no-thumb class is present) */
+.slider.range-no-thumb::-webkit-slider-thumb {
+  opacity: 0 !important;
+}
+.slider.range-no-thumb::-moz-range-thumb {
+  opacity: 0 !important;
+}
+
+
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

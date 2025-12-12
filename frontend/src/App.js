@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import NotificationsProvider, { useNotification } from './Notifications';
+import './App.css';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -321,8 +322,6 @@ function TestsList({ onSelect }) {
 }
 
 function StudentHome({ profile }) {
-  const [openResult, setOpenResult] = useState(null);
-
   const careerData = {
     'R': { name: 'Realistic', color: 'bg-blue-500', desc: 'Hands-on work with tools and machinery' },
     'I': { name: 'Investigative', color: 'bg-purple-500', desc: 'Analytical and research-oriented' },
@@ -464,13 +463,14 @@ function downloadResultForUser(result, profile) {
 }
 
 function TestComponent({ profile, fetchProfile, testKey }) {
-  const { notify, confirm, celebrate } = useNotification();
+  const { notify, celebrate } = useNotification();
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [visitedQuestions, setVisitedQuestions] = useState({});
 
   const fetchQuestions = React.useCallback(async () => {
     try {
@@ -515,12 +515,18 @@ function TestComponent({ profile, fetchProfile, testKey }) {
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
+      // Mark current question as visited when moving to next
+      const qId = questions[currentIndex]._id;
+      setVisitedQuestions(prev => ({ ...prev, [qId]: true }));
       setCurrentIndex(currentIndex + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
+      // Mark current question as visited when moving to previous
+      const qId = questions[currentIndex]._id;
+      setVisitedQuestions(prev => ({ ...prev, [qId]: true }));
       setCurrentIndex(currentIndex - 1);
     }
   };
@@ -607,7 +613,12 @@ function TestComponent({ profile, fetchProfile, testKey }) {
 
   const currentQuestion = questions[currentIndex];
   const testTitle = testKey || 'Assessment';
-  const currentAnswer = (testKey === 'RIASEC') ? (answers[currentQuestion._id] ?? 3) : (answers[currentQuestion._id] ?? 0);
+  const hasAnswer = answers[currentQuestion._id] !== undefined;
+  const isQuestionVisited = visitedQuestions[currentQuestion._id] === true;
+  const showUnansweredWarning = isQuestionVisited && !hasAnswer;
+  const currentAnswer = (testKey === 'RIASEC')
+    ? (hasAnswer ? answers[currentQuestion._id] : 3)
+    : (hasAnswer ? answers[currentQuestion._id] : 0);
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / questions.length) * 100;
 
@@ -634,13 +645,16 @@ function TestComponent({ profile, fetchProfile, testKey }) {
         <p className="text-xs text-gray-600 mt-2">{answeredCount} of {questions.length} answered</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-8">
+      <div className={`bg-white rounded-xl shadow-md p-8 ${showUnansweredWarning ? 'border-4 border-red-400 bg-red-50' : ''}`}>
         <div className="mb-8">
           <div className="flex items-start gap-3 mb-6">
-            <div className="bg-indigo-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${showUnansweredWarning ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`}>
               {currentQuestion.questionNumber}
             </div>
-            <p className="text-lg font-medium text-gray-800 pt-1">{currentQuestion.text}</p>
+            <div className="flex-1">
+              <p className="text-lg font-medium text-gray-800 pt-1">{currentQuestion.text}</p>
+              {showUnansweredWarning && <p className="text-sm text-red-600 mt-2 font-semibold">⚠️ Please answer this question</p>}
+            </div>
           </div>
         </div>
 
@@ -653,13 +667,13 @@ function TestComponent({ profile, fetchProfile, testKey }) {
                 max="5"
                 step="1"
                 value={currentAnswer}
-                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
-                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                onInput={(e) => handleSliderChange(parseInt(e.target.value))}
+                className={`w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${!hasAnswer ? 'range-no-thumb' : ''}`}
               />
               <div className="flex justify-between mt-3">
                 {sliderLabels.map((item) => (
                   <div key={item.value} className="text-center flex-1">
-                    <div className={`text-xs font-medium ${currentAnswer === item.value ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
+                    <div className={`text-xs font-medium ${(hasAnswer && currentAnswer === item.value) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
                       {item.label}
                     </div>
                   </div>
@@ -853,18 +867,6 @@ function StudentsManagement() {
     }
   };
 
-  const handleResetAssessment = async (id, name) => {
-    const ok = await confirm(`Reset assessment for ${name}?`);
-    if (!ok) return;
-    try {
-      await axios.post(`${API_URL}/admin/students/${id}/reset-assessment`);
-      fetchStudents();
-      notify('Assessment reset successfully', 'success');
-    } catch (error) {
-      notify('Failed to reset assessment', 'error');
-    }
-  };
-
   const handleResetAssessmentForTest = async (id, name, testKey) => {
     const ok = await confirm(`Reset assessment for ${name} (${testKey})?`);
     if (!ok) return;
@@ -900,7 +902,7 @@ function StudentsManagement() {
     const fd = new FormData();
     fd.append('file', studentFile);
     try {
-      const res = await axios.post(`${API_URL}/admin/students/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await axios.post(`${API_URL}/admin/students/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       notify('Upload complete', 'success');
       fetchStudents();
     } catch (err) {
@@ -917,12 +919,6 @@ function StudentsManagement() {
     a.download = `${student.rollNumber}_${result.test || 'result'}_career_report.txt`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const downloadReport = (student) => {
-    const latestResult = student.testResults && student.testResults.length ? student.testResults[student.testResults.length - 1] : null;
-    if (!latestResult) return notify('No result available to download', 'error');
-    downloadResult(student, latestResult);
   };
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>;
@@ -1137,12 +1133,7 @@ function QuestionsManagement() {
   const [selectedTest, setSelectedTest] = useState('RIASEC');
   const { notify, confirm } = useNotification();
 
-  useEffect(() => {
-    fetchTests();
-    fetchQuestions();
-  }, []);
-
-  const fetchQuestions = async () => {
+  const fetchQuestions = React.useCallback(async () => {
     try {
       const response = await axios.get(`${API_URL}/questions`, { params: { test: selectedTest } });
       setQuestions(response.data);
@@ -1150,9 +1141,9 @@ function QuestionsManagement() {
     } catch (error) {
       setLoading(false);
     }
-  };
+  }, [selectedTest]);
 
-  const fetchTests = async () => {
+  const fetchTests = React.useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/tests`);
       setTests(res.data || []);
@@ -1162,7 +1153,12 @@ function QuestionsManagement() {
     } catch (err) {
       console.error('Failed to fetch tests for admin', err);
     }
-  };
+  }, [selectedTest]);
+
+  useEffect(() => {
+    fetchTests();
+    fetchQuestions();
+  }, [fetchTests, fetchQuestions]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1254,7 +1250,7 @@ function QuestionsManagement() {
                 // pass selected test so rows missing test can be defaulted
                 fd.append('test', selectedTest || formData.test || 'RIASEC');
                 try {
-                  const res = await axios.post(`${API_URL}/admin/questions/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                  await axios.post(`${API_URL}/admin/questions/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
                   notify('Questions uploaded successfully', 'success');
                   fetchQuestions();
                 } catch (err) {
