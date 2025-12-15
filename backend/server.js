@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema({
   testResults: [
     {
       test: String,
+      // RIASEC fields
       scores: {
         R: Number,
         I: Number,
@@ -45,6 +46,15 @@ const userSchema = new mongoose.Schema({
       topThree: [String],
       primaryCareer: String,
       recommendedCareers: [String],
+      // Personality fields
+      score: Number,
+      questionCount: Number,
+      interpretation: String,
+      feedback: String,
+      // Aptitude fields
+      correct: Number,
+      total: Number,
+      // Common field
       completedAt: Date
     }
   ]

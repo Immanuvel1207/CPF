@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import NotificationsProvider, { useNotification } from './Notifications';
 import './App.css';
+import logo from './logo.jpeg';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -109,19 +110,42 @@ function Login({ setUser }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="inline-block bg-indigo-100 p-3 rounded-full mb-3">
-            <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 flex">
+      {/* Left Side - College Logo */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 text-white">
+        <div className="max-w-md text-center">
+          <img 
+                src={logo}
+                alt="College Logo" 
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'block';
+                }}
+              />
+          <h1 className="text-4xl font-bold mb-4">Welcome to Career Assessment Portal</h1>
+          <p className="text-lg text-white/90 mb-6">Discover your ideal career path with our comprehensive assessment tools</p>
+          <div className="space-y-2 text-sm text-white/80">
+            <p>✓ RIASEC Career Interest Assessment</p>
+            <p>✓ Personality Inventory</p>
+            <p>✓ Aptitude Testing</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Career Assessment</h1>
-          <p className="text-gray-600 text-sm">Discover Your Ideal Path</p>
         </div>
+      </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-12">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+          <div className="text-center mb-6">
+            <div className="inline-block bg-indigo-100 p-3 rounded-full mb-3">
+              <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800">Career Assessment</h1>
+            <p className="text-gray-600 text-sm">Discover Your Ideal Path</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Roll Number</label>
             <input
@@ -171,6 +195,7 @@ function Login({ setUser }) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
@@ -330,7 +355,18 @@ function StudentHome({ profile }) {
     'E': { name: 'Enterprising', color: 'bg-orange-500', desc: 'Leadership and entrepreneurship' },
     'C': { name: 'Conventional', color: 'bg-gray-500', desc: 'Organized and detail-oriented' }
   };
-  if (!profile) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-10 w-10 border-b-4 border-indigo-600"></div></div>;
+  
+  if (!profile) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-4 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  const testResults = profile?.testResults || [];
+  const sortedTestResults = [...testResults].sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
+  const riasecResults = sortedTestResults.filter(r => r.test === 'RIASEC');
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-md p-6">
@@ -359,8 +395,8 @@ function StudentHome({ profile }) {
       </div>
 
       {/* attractive primary career card */}
-      {profile.hasCompletedTest && profile.testResults && profile.testResults.length > 0 && (() => {
-        const latest = profile.testResults[profile.testResults.length - 1];
+      {profile.hasCompletedTest && riasecResults.length > 0 && (() => {
+        const latest = riasecResults[0];
         const primaryCode = latest.topThree?.[0]?.split(' - ')[0] || 'R';
         const primaryShort = primaryCode;
         const primaryLabel = latest.primaryCareer || `${primaryCode} - ${careerData[primaryCode]?.name}`;
@@ -381,9 +417,13 @@ function StudentHome({ profile }) {
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {(latest.recommendedCareers || []).slice(0,6).map((c, i) => (
-                    <div key={i} className="px-3 py-1 bg-white/20 rounded-full text-sm">{c}</div>
+                <div className="mt-4 space-y-1">
+                  <div className="text-xs opacity-90 font-semibold mb-2">Preferred Tasks:</div>
+                  {(latest.recommendedCareers || []).slice(0,4).map((c, i) => (
+                    <div key={i} className="text-sm opacity-95 flex items-start gap-2">
+                      <span>•</span>
+                      <span>{c}</span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -392,27 +432,117 @@ function StudentHome({ profile }) {
         );
       })()}
 
+      {/* When only non-RIASEC tests exist, show their result plus a prompt to take RIASEC */}
+      {profile.hasCompletedTest && riasecResults.length === 0 && sortedTestResults.length > 0 && (() => {
+        const latest = sortedTestResults[0];
+
+        // Personality summary card
+        if (latest.test === 'Personality') {
+          const getNum = (v) => (v !== undefined && v !== null && !isNaN(Number(v)) ? Number(v) : null);
+          const score = getNum(latest.score) ?? getNum(latest.total) ?? getNum(latest.correct);
+          const questionCount = getNum(latest.questionCount);
+          const interpretation = latest.interpretation || '';
+          const feedback = latest.feedback || '';
+          let scoreRange = '';
+          if (questionCount) {
+            scoreRange = questionCount >= 14
+              ? `WEMWBS (14-item): ${score ?? '—'}/70`
+              : `SWEMWBS (7-item): ${score ?? '—'}/35`;
+          } else {
+            scoreRange = score != null ? `Score: ${score}` : 'Score not available';
+          }
+
+          return (
+            <>
+              <div className="bg-white rounded-xl shadow-md p-6 border border-purple-200">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-700 text-2xl">😊</div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-800">Personality Inventory Result</h3>
+                    <p className="text-sm text-gray-600 mt-1">{scoreRange}</p>
+                    <p className="text-md font-semibold text-purple-700 mt-2">{interpretation}</p>
+                    <div className="mt-3 text-sm text-gray-700 whitespace-pre-line leading-relaxed">{feedback}</div>
+                    <div className="text-xs text-gray-500 mt-3">Completed: {new Date(latest.completedAt).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
+                <div className="flex items-start gap-3">
+                  <div className="text-3xl">ℹ️</div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-yellow-800">RIASEC result not available yet</h3>
+                    <p className="text-sm text-yellow-700 mt-1">Take the Career Interest (RIASEC) test to unlock the full career dashboard with top matches and task preferences.</p>
+                    <div className="mt-3 text-xs text-yellow-700">Last test completed: {new Date(latest.completedAt).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        }
+
+        // Aptitude summary card
+        if (latest.test === 'Aptitude') {
+          const score = latest.score || latest.correct || 0;
+          const total = latest.total || latest.totalQuestions || 0;
+          return (
+            <>
+              <div className="bg-white rounded-xl shadow-md p-6 border border-blue-200">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-2xl">🧠</div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-800">Aptitude Test Result</h3>
+                    <p className="text-md font-semibold text-blue-700 mt-2">Score: {score} / {total}</p>
+                    <div className="text-xs text-gray-500 mt-3">Completed: {new Date(latest.completedAt).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
+                <div className="flex items-start gap-3">
+                  <div className="text-3xl">ℹ️</div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-yellow-800">RIASEC result not available yet</h3>
+                    <p className="text-sm text-yellow-700 mt-1">Take the Career Interest (RIASEC) test to unlock the full career dashboard with top matches and task preferences.</p>
+                    <div className="mt-3 text-xs text-yellow-700">Last test completed: {new Date(latest.completedAt).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        }
+
+        // Generic fallback
+        return (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="text-3xl">ℹ️</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-yellow-800">RIASEC result not available yet</h3>
+                <p className="text-sm text-yellow-700 mt-1">Your latest completed test is {latest.test}. Take the Career Interest (RIASEC) test to see the full dashboard with career matches.</p>
+                <div className="mt-3 text-xs text-yellow-700">Last test completed: {new Date(latest.completedAt).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* top three breakdown with attractive bars */}
-      {profile.testResults && profile.testResults.length > 0 && (() => {
-        const latest = profile.testResults[profile.testResults.length - 1];
+      {riasecResults.length > 0 && (() => {
+        const latest = riasecResults[0];
+        const allScores = Object.entries(latest?.scores || {});
+        const maxPossibleScore = 35; // 7 questions × 5 points max = 35
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Object.entries(latest?.scores || {}).sort(([,a],[,b])=>b-a).slice(0,3).map(([code, score]) => {
+            {allScores.sort(([,a],[,b])=>b-a).slice(0,3).map(([code, score]) => {
               const career = careerData[code];
-              const max = 7;
-              const pct = Math.round((score / max) * 100);
+              const numScore = Number(score) || 0;
               return (
                 <div key={code} className="bg-white rounded-xl shadow p-5">
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex-1">
                       <div className="text-xs text-gray-500">{career.name}</div>
-                      <div className="text-xl font-bold mt-1">{score}/{max}</div>
-                    </div>
-                    <div className="w-24 text-right">
-                      <div className="text-sm font-semibold">{pct}%</div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 mt-2">
-                        <div className={`${career.color} h-3 rounded-full`} style={{ width: `${pct}%` }}></div>
-                      </div>
+                      <div className="text-3xl font-bold mt-2 text-indigo-600">{numScore}<span className="text-xl text-gray-400">/{maxPossibleScore}</span></div>
                     </div>
                   </div>
                   <p className="text-sm text-gray-500 mt-3">{career.desc}</p>
@@ -423,25 +553,102 @@ function StudentHome({ profile }) {
         );
       })()}
 
-      {/* Test history: show all saved test results */}
-      {profile.testResults && profile.testResults.length > 0 && (
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h4 className="text-xl font-bold mb-4">Test History</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {profile.testResults.slice().reverse().map((r, idx) => (
-              <div key={idx} className="border rounded-lg p-4 bg-gray-50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="font-semibold">{r.test} — {r.primaryCareer}</div>
-                    <div className="text-sm text-gray-500">Completed: {new Date(r.completedAt).toLocaleString()}</div>
-                    <div className="mt-2 text-sm">Top: {r.topThree?.map(t => t.split(' - ')[0]).join(', ')}</div>
+      {/* Latest test result (any test) to surface Personality/Aptitude clearly */}
+      {sortedTestResults.length > 0 && (() => {
+        const latestAny = sortedTestResults[0];
+
+        if (latestAny.test === 'Personality') {
+          const getNum = (v) => (v !== undefined && v !== null && !isNaN(Number(v)) ? Number(v) : null);
+          const score = getNum(latestAny.score) ?? getNum(latestAny.total) ?? getNum(latestAny.correct);
+          const questionCount = getNum(latestAny.questionCount);
+          const interpretation = latestAny.interpretation || '';
+          const feedback = latestAny.feedback || '';
+          const scoreRange = questionCount
+            ? (questionCount >= 14 ? `WEMWBS (14-item): ${score ?? '—'}/70` : `SWEMWBS (7-item): ${score ?? '—'}/35`)
+            : (score != null ? `Score: ${score}` : 'Score not available');
+
+          return (
+            <div className="bg-white rounded-xl shadow-md p-6 border border-purple-200">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-700 text-2xl">😊</div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Latest Test: Personality Inventory</h3>
+                      <p className="text-sm text-gray-600 mt-1">{scoreRange}</p>
+                      <p className="text-md font-semibold text-purple-700 mt-2">{interpretation}</p>
+                    </div>
+                    <div className="text-xs text-gray-500">{new Date(latestAny.completedAt).toLocaleString()}</div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <button onClick={() => downloadResultForUser(r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold">Download</button>
+                  <div className="mt-3 text-sm text-gray-700 whitespace-pre-line leading-relaxed">{feedback}</div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        if (latestAny.test === 'Aptitude') {
+          const score = latestAny.score || latestAny.correct || 0;
+          const total = latestAny.total || latestAny.totalQuestions || 0;
+          return (
+            <div className="bg-white rounded-xl shadow-md p-6 border border-blue-200">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-2xl">🧠</div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Latest Test: Aptitude</h3>
+                      <p className="text-md font-semibold text-blue-700 mt-2">Score: {score} / {total}</p>
+                    </div>
+                    <div className="text-xs text-gray-500">{new Date(latestAny.completedAt).toLocaleString()}</div>
                   </div>
                 </div>
               </div>
-            ))}
+            </div>
+          );
+        }
+
+        // If latest is RIASEC, rely on the main RIASEC cards already shown; no extra card needed.
+        return null;
+      })()}
+
+      {/* Test history: show all saved test results */}
+      {sortedTestResults.length > 0 && (
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h4 className="text-xl font-bold mb-4">Test History</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sortedTestResults.map((r, idx) => {
+              const isPersonality = r.test === 'Personality';
+              const isAptitude = r.test === 'Aptitude';
+              const getNum = (v) => (v !== undefined && v !== null && !isNaN(Number(v)) ? Number(v) : null);
+              const qc = getNum(r.questionCount);
+              const sVal = getNum(r.score) ?? getNum(r.total) ?? getNum(r.correct);
+              const titleText = isPersonality 
+                ? `${r.test} (${qc && qc >= 14 ? 'WEMWBS' : 'SWEMWBS'})` 
+                : isAptitude 
+                ? `${r.test}` 
+                : `${r.test} — ${r.primaryCareer}`;
+              const scoreText = isPersonality 
+                ? (qc ? `Score: ${sVal ?? '—'}/${qc >= 14 ? 70 : 35}` : (sVal != null ? `Score: ${sVal}` : 'Score: —')) 
+                : isAptitude 
+                ? `Score: ${sVal ?? '—'}/${getNum(r.total) ?? getNum(r.totalQuestions) ?? '—'}` 
+                : `Top: ${r.topThree?.map(t => t.split(' - ')[0]).join(', ')}`;
+              
+              return (
+                <div key={idx} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-semibold">{titleText}</div>
+                      <div className="text-sm text-gray-500">Completed: {new Date(r.completedAt).toLocaleString()}</div>
+                      <div className="mt-2 text-sm">{scoreText}</div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <button onClick={() => downloadResultForUser(r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold">Download</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -451,7 +658,7 @@ function StudentHome({ profile }) {
 
 function downloadResultForUser(result, profile) {
   // profile is optional; if not passed, we won't include user info
-  const report = `CAREER ASSESSMENT REPORT\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nRecommended Careers:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}\n\nCompleted At: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}`;
+  const report = `CAREER ASSESSMENT REPORT\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nPreferred Tasks & Activities:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}\n\nCompleted At: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}`;
 
   const blob = new Blob([report], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -612,18 +819,30 @@ function TestComponent({ profile, fetchProfile, testKey }) {
 
   if (result) {
     if (testKey === 'Personality') {
-      const total = result.total || result.score || 0;
-      const interpretation = result.interpretation || result.feedback || '';
+      const score = result.score || 0;
+      const questionCount = result.questionCount || questions.length;
+      const interpretation = result.interpretation || '';
+      const feedback = result.feedback || '';
+      
+      // Determine score range text
+      let scoreRange = '';
+      if (questionCount >= 14) {
+        scoreRange = `WEMWBS (14-item): ${score}/70`;
+      } else {
+        scoreRange = `SWEMWBS (7-item): ${score}/35`;
+      }
+
       return (
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="bg-green-500 text-white rounded-xl p-8 text-center">
             <div className="text-6xl mb-3">🎉</div>
             <h2 className="text-3xl font-bold">Personality Assessment Complete</h2>
-            <div className="text-sm mt-1 opacity-90">Score: {total}</div>
+            <div className="text-sm mt-2 opacity-90">{scoreRange}</div>
+            <div className="text-lg mt-2 font-semibold">{interpretation}</div>
           </div>
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4">Interpretation & Feedback</h3>
-            <div className="text-sm text-gray-700 whitespace-pre-line">{interpretation}</div>
+            <h3 className="text-xl font-bold mb-4">Feedback & Recommendations</h3>
+            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{feedback}</div>
           </div>
         </div>
       );
@@ -669,10 +888,13 @@ function TestComponent({ profile, fetchProfile, testKey }) {
             ))}
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-bold text-blue-800 mb-2">Recommended Careers</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {(result.recommendedCareers || []).map((career, idx) => (
-                <div key={idx} className="text-sm text-blue-700">{career}</div>
+            <h4 className="font-bold text-blue-800 mb-2">Preferred Tasks & Activities</h4>
+            <div className="grid grid-cols-1 gap-2">
+              {(result.recommendedCareers || []).map((task, idx) => (
+                <div key={idx} className="text-sm text-blue-700 flex items-start gap-2">
+                  <span className="text-blue-500">•</span>
+                  <span>{task}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -692,12 +914,21 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / questions.length) * 100;
 
-  const sliderLabels = [
+  const sliderLabelsRIASEC = [
     { value: 1, label: 'Strongly Disagree' },
     { value: 2, label: 'Disagree' },
     { value: 3, label: 'Neutral' },
     { value: 4, label: 'Agree' },
     { value: 5, label: 'Strongly Agree' }
+  ];
+
+  // Personality Inventory scale as requested: None → Rarely → Some → Often → All of the time
+  const sliderLabelsPersonality = [
+    { value: 1, label: 'None of the time' },
+    { value: 2, label: 'Rarely' },
+    { value: 3, label: 'Some of the time' },
+    { value: 4, label: 'Often' },
+    { value: 5, label: 'All of the time' }
   ];
 
   return (
@@ -743,7 +974,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
                 className={`w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${!hasAnswer ? 'range-no-thumb' : ''}`}
               />
               <div className="flex justify-between mt-3">
-                {sliderLabels.map((item) => (
+                {sliderLabelsRIASEC.map((item) => (
                   <div key={item.value} className="text-center flex-1">
                     <div className={`text-xs font-medium ${(hasAnswer && currentAnswer === item.value) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
                       {item.label}
@@ -765,7 +996,7 @@ function TestComponent({ profile, fetchProfile, testKey }) {
                 className={`w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${!hasAnswer ? 'range-no-thumb' : ''}`}
               />
               <div className="flex justify-between mt-3">
-                {sliderLabels.map((item) => (
+                {sliderLabelsPersonality.map((item) => (
                   <div key={item.value} className="text-center flex-1">
                     <div className={`text-xs font-medium ${(hasAnswer && currentAnswer === item.value) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
                       {item.label}
@@ -955,6 +1186,7 @@ function StudentsManagement() {
   const [loading, setLoading] = useState(true);
   const [viewingStudent, setViewingStudent] = useState(null);
   const [tests, setTests] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const { notify, confirm } = useNotification();
 
   useEffect(() => {
@@ -1037,7 +1269,7 @@ function StudentsManagement() {
     }
   };
   const downloadResult = (student, result) => {
-    const report = `CAREER ASSESSMENT REPORT\n\nStudent Information:\n- Name: ${student.name}\n- Roll Number: ${student.rollNumber}\n- Assessment Date: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nRecommended Careers:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}`;
+    const report = `CAREER ASSESSMENT REPORT\n\nStudent Information:\n- Name: ${student.name}\n- Roll Number: ${student.rollNumber}\n- Assessment Date: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nPreferred Tasks & Activities:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}`;
 
     const blob = new Blob([report], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -1050,12 +1282,17 @@ function StudentsManagement() {
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>;
 
+  const filteredStudents = students.filter(student => {
+    const query = searchQuery.toLowerCase();
+    return student.rollNumber.toLowerCase().includes(query) || student.name.toLowerCase().includes(query);
+  });
+
   return (
     <div>
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <h2 className="text-2xl font-bold mb-4">Student Management</h2>
         <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
             <p className="text-xs font-semibold text-blue-700">TOTAL STUDENTS</p>
             <p className="text-3xl font-bold text-blue-600">{students.length}</p>
@@ -1067,6 +1304,10 @@ function StudentsManagement() {
           <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
             <p className="text-xs font-semibold text-yellow-700">PENDING</p>
             <p className="text-3xl font-bold text-yellow-600">{students.filter(s => !s.hasCompletedTest).length}</p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+            <p className="text-xs font-semibold text-purple-700">TOTAL RESULTS</p>
+            <p className="text-3xl font-bold text-purple-600">{students.reduce((sum, s) => sum + (s.testResults?.length || 0), 0)}</p>
           </div>
           </div>
           <div className="flex items-center gap-3">
@@ -1089,6 +1330,21 @@ function StudentsManagement() {
             </div>
           </form>
         )}
+
+        <div className="mb-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by Roll Number or Name..."
+              className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            />
+            <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -1103,7 +1359,7 @@ function StudentsManagement() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {students.map(student => {
+            {filteredStudents.map(student => {
               const latestResult = student.testResults && student.testResults.length ? student.testResults[student.testResults.length - 1] : null;
               return (
                 <tr key={student._id} className="hover:bg-gray-50">
@@ -1119,28 +1375,44 @@ function StudentsManagement() {
                   <td className="px-4 py-3">
                     {latestResult ? (
                       <div className="space-y-2 text-xs">
-                        <div className="grid grid-cols-3 gap-2">
-                          {['R','I','A','S','E','C'].map(code => {
-                            const score = latestResult.scores?.[code] || 0;
-                            const maxScore = 7;
-                            const pct = Math.round((score / maxScore) * 100);
-                            return (
-                              <div key={code} className="flex items-center gap-2">
-                                <div className="w-8 text-sm font-semibold text-indigo-700">{code}</div>
-                                <div className="flex-1">
-                                  <div className="flex justify-between text-xs text-gray-500">
-                                    <div>{pct}%</div>
-                                    <div>{score}/{maxScore}</div>
+                        {latestResult.test === 'RIASEC' ? (
+                          <>
+                            <div className="grid grid-cols-3 gap-2">
+                              {['R','I','A','S','E','C'].map(code => {
+                                const score = latestResult.scores?.[code] || 0;
+                                const maxScore = 35;
+                                const pct = Math.round((score / maxScore) * 100);
+                                return (
+                                  <div key={code} className="flex items-center gap-1">
+                                    <div className="w-6 text-sm font-semibold text-indigo-700">{code}</div>
+                                    <div className="flex-1">
+                                      <div className="text-xs text-gray-500">{score}/{maxScore}</div>
+                                      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-0.5">
+                                        <div className={`bg-indigo-500 h-1.5 rounded-full`} style={{ width: `${pct}%` }}></div>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                                    <div className={`bg-indigo-500 h-2 rounded-full`} style={{ width: `${pct}%` }}></div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="text-gray-500">Top: {latestResult.topThree?.map(t => t.split(' ')[0]).join(', ')}</div>
+                                );
+                              })}
+                            </div>
+                            <div className="text-gray-500">Top: {latestResult.topThree?.map(t => t.split(' ')[0]).join(', ')}</div>
+                          </>
+                        ) : latestResult.test === 'Personality' ? (
+                          <>
+                            <div className="font-semibold text-indigo-600">
+                              Score: {latestResult.score || latestResult.total || '—'} / {latestResult.questionCount >= 14 ? 70 : 35}
+                            </div>
+                            <div className="text-gray-600">{latestResult.interpretation || 'Assessment completed'}</div>
+                          </>
+                        ) : latestResult.test === 'Aptitude' ? (
+                          <>
+                            <div className="font-semibold text-indigo-600">
+                              Score: {latestResult.score || latestResult.correct || 0} / {latestResult.total || latestResult.totalQuestions || '—'}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-gray-500">{latestResult.test} - Test completed</span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-gray-400 text-xs">Not available</span>
@@ -1206,34 +1478,56 @@ function StudentsManagement() {
             {viewingStudent.testResults && viewingStudent.testResults.length ? (
               <div className="space-y-3 max-h-72 overflow-auto">
                 {viewingStudent.testResults.map((r, idx) => (
-                  <div key={idx} className="p-3 border rounded-lg">
+                  <div key={idx} className="p-4 border rounded-lg bg-gray-50">
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex-1">
-                        <div className="font-semibold">{r.test} — {r.primaryCareer}</div>
-                        <div className="text-sm text-gray-500">Completed: {new Date(r.completedAt).toLocaleString()}</div>
-                        <div className="mt-2 text-sm">Top: {r.topThree?.map(t => t.split(' - ')[0]).join(', ')}</div>
-                        <div className="grid grid-cols-3 gap-2 mt-3">
-                          {['R','I','A','S','E','C'].map(code => {
-                            const score = r.scores?.[code] || 0;
-                            const maxScore = 7;
-                            const pct = Math.round((score / maxScore) * 100);
-                            return (
-                              <div key={code} className="p-2 bg-white/50 rounded">
-                                <div className="flex items-center justify-between text-xs text-gray-600">
-                                  <div className="font-semibold">{code}</div>
-                                  <div>{pct}%</div>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                  <div className={`bg-indigo-500 h-2 rounded-full`} style={{ width: `${pct}%` }}></div>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">{score}/{maxScore}</div>
-                              </div>
-                            );
-                          })}
+                        <div className="font-semibold text-lg mb-1">
+                          {r.test} {r.test === 'RIASEC' && `— ${r.primaryCareer}`}
                         </div>
+                        <div className="text-sm text-gray-500 mb-3">Completed: {new Date(r.completedAt).toLocaleString()}</div>
+                        
+                        {r.test === 'RIASEC' ? (
+                          <>
+                            <div className="grid grid-cols-3 gap-2 mb-3">
+                              {['R','I','A','S','E','C'].map(code => {
+                                const score = r.scores?.[code] || 0;
+                                const maxScore = 35;
+                                const pct = Math.round((score / maxScore) * 100);
+                                return (
+                                  <div key={code} className="p-2 bg-white rounded border">
+                                    <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                                      <div className="font-semibold">{code}</div>
+                                      <div>{score}/{maxScore}</div>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div className={`bg-indigo-500 h-2 rounded-full`} style={{ width: `${pct}%` }}></div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="text-sm text-gray-600">Top Matches: {r.topThree?.map(t => t.split(' - ')[0]).join(', ')}</div>
+                          </>
+                        ) : r.test === 'Personality' ? (
+                          <>
+                            <div className="bg-white rounded border p-3 mb-2">
+                              <div className="text-sm text-gray-700 mb-1"><span className="font-semibold">Score:</span> {r.score || r.total || '—'} / {r.questionCount >= 14 ? 70 : 35}</div>
+                              <div className="text-sm text-gray-700"><span className="font-semibold">Scale:</span> {r.questionCount >= 14 ? 'WEMWBS (14-item)' : 'SWEMWBS (7-item)'}</div>
+                              <div className="text-sm text-indigo-600 mt-2 font-semibold">{r.interpretation}</div>
+                              {r.feedback && <div className="text-xs text-gray-600 mt-2 whitespace-pre-wrap">{r.feedback}</div>}
+                            </div>
+                          </>
+                        ) : r.test === 'Aptitude' ? (
+                          <>
+                            <div className="bg-white rounded border p-3">
+                              <div className="text-sm text-gray-700"><span className="font-semibold">Score:</span> {r.score || r.correct || 0} / {r.total || r.totalQuestions || '—'}</div>
+                              <div className="text-sm text-gray-600 mt-2">Correct Answers: {r.score || r.correct || 0}</div>
+                            </div>
+                          </>
+                        ) : null}
                       </div>
-                      <div className="flex-shrink-0 flex flex-col gap-2">
-                        <button onClick={() => downloadResult(viewingStudent, r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold">Download</button>
+                      <div className="flex-shrink-0">
+                        <button onClick={() => downloadResult(viewingStudent, r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold whitespace-nowrap">Download</button>
                       </div>
                     </div>
                   </div>
