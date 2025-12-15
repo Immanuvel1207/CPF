@@ -394,39 +394,41 @@ function StudentHome({ profile }) {
         </div>
       </div>
 
-      {/* attractive primary career card */}
+      {/* RIASEC summary: show top 1 large and next 2 smaller */}
       {profile.hasCompletedTest && riasecResults.length > 0 && (() => {
         const latest = riasecResults[0];
-        const primaryCode = latest.topThree?.[0]?.split(' - ')[0] || 'R';
-        const primaryShort = primaryCode;
-        const primaryLabel = latest.primaryCareer || `${primaryCode} - ${careerData[primaryCode]?.name}`;
-        const desc = careerData[primaryCode]?.desc || '';
+        const scores = latest?.scores || {};
+        const sorted = Object.entries(scores).sort(([,a],[,b]) => b - a);
+        const topThree = sorted.slice(0,3).map(([code]) => code);
+        const [top1, top2, top3] = topThree;
+        const top1Label = `${top1} - ${careerData[top1]?.name || ''}`;
         return (
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-            <div className="flex items-start gap-6">
-              <div className="w-24 h-24 rounded-lg bg-white/10 flex items-center justify-center text-4xl font-bold">{primaryShort}</div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-3xl font-bold">{primaryLabel}</h3>
-                    <p className="text-sm opacity-90 mt-1">{desc}</p>
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+              <div className="flex items-start gap-6">
+                <div className="w-24 h-24 rounded-lg bg-white/10 flex items-center justify-center text-4xl font-bold">{top1}</div>
+                <div className="flex-1">
+                  <h3 className="text-3xl font-bold">{top1Label}</h3>
+                  <p className="text-sm opacity-90 mt-1">{careerData[top1]?.desc}</p>
+                  <div className="mt-4 space-y-1">
+                    <div className="text-xs opacity-90 font-semibold mb-2">Preferred Tasks:</div>
+                    {(latest.recommendedCareers || []).slice(0,4).map((c, i) => (
+                      <div key={i} className="text-sm opacity-95 flex items-start gap-2">
+                        <span>•</span>
+                        <span>{c}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs opacity-90">Top Match</div>
-                    <div className="text-2xl font-semibold mt-1">#{latest.topThree?.length ? 1 : '-'}</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-1">
-                  <div className="text-xs opacity-90 font-semibold mb-2">Preferred Tasks:</div>
-                  {(latest.recommendedCareers || []).slice(0,4).map((c, i) => (
-                    <div key={i} className="text-sm opacity-95 flex items-start gap-2">
-                      <span>•</span>
-                      <span>{c}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[top2, top3].filter(Boolean).map((code) => (
+                <div key={code} className="bg-white rounded-xl shadow p-5">
+                  <div className="text-xs text-gray-500">{careerData[code]?.name}</div>
+                  <div className="text-sm text-gray-600 mt-1">{careerData[code]?.desc}</div>
+                </div>
+              ))}
             </div>
           </div>
         );
@@ -527,24 +529,22 @@ function StudentHome({ profile }) {
         );
       })()}
 
-      {/* top three breakdown with attractive bars */}
+      {/* Detailed RIASEC breakdown (top three only) */}
       {riasecResults.length > 0 && (() => {
         const latest = riasecResults[0];
-        const allScores = Object.entries(latest?.scores || {});
-        const maxPossibleScore = 35; // 7 questions × 5 points max = 35
+        const maxPossibleScore = 35;
+        const topThree = Object.entries(latest?.scores || {})
+          .sort(([,a],[,b])=>b-a)
+          .slice(0,3);
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {allScores.sort(([,a],[,b])=>b-a).slice(0,3).map(([code, score]) => {
+            {topThree.map(([code, score]) => {
               const career = careerData[code];
               const numScore = Number(score) || 0;
               return (
                 <div key={code} className="bg-white rounded-xl shadow p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="text-xs text-gray-500">{career.name}</div>
-                      <div className="text-3xl font-bold mt-2 text-indigo-600">{numScore}<span className="text-xl text-gray-400">/{maxPossibleScore}</span></div>
-                    </div>
-                  </div>
+                  <div className="text-xs text-gray-500">{career.name}</div>
+                  <div className="text-3xl font-bold mt-2 text-indigo-600">{numScore}<span className="text-xl text-gray-400">/{maxPossibleScore}</span></div>
                   <p className="text-sm text-gray-500 mt-3">{career.desc}</p>
                 </div>
               );
@@ -643,7 +643,7 @@ function StudentHome({ profile }) {
                       <div className="mt-2 text-sm">{scoreText}</div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <button onClick={() => downloadResultForUser(r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold">Download</button>
+                      <button onClick={() => downloadResultForUser(r, profile)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold">Download</button>
                     </div>
                   </div>
                 </div>
@@ -657,16 +657,78 @@ function StudentHome({ profile }) {
 }
 
 function downloadResultForUser(result, profile) {
-  // profile is optional; if not passed, we won't include user info
-  const report = `CAREER ASSESSMENT REPORT\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nPreferred Tasks & Activities:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}\n\nCompleted At: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}`;
+  const roll = profile?.rollNumber || 'N/A';
+  const name = profile?.name || 'N/A';
+  const test = result?.test || 'N/A';
 
-  const blob = new Blob([report], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${result.test || 'result'}_career_report.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  // Build content based on test type
+  let lines = [];
+  lines.push(`Career Assessment Report`);
+  lines.push(``);
+  lines.push(`Student: ${name} (${roll})`);
+  lines.push(`Test: ${test}`);
+  lines.push(`Completed: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}`);
+  lines.push(``);
+
+  if (test === 'RIASEC') {
+    const scores = result?.scores || {};
+    const topThree = Object.entries(scores).sort(([,a],[,b]) => b-a).slice(0,3).map(([c]) => c);
+    const recs = result?.recommendedCareers || [];
+    lines.push(`Top Matches: ${topThree.join(', ')}`);
+    lines.push(`Scores:`);
+    Object.entries(scores).forEach(([code, score]) => lines.push(`- ${code}: ${score} / 35`));
+    if (recs.length) {
+      lines.push(``);
+      lines.push(`Suggestions:`);
+      recs.forEach(s => lines.push(`- ${s}`));
+    }
+  } else if (test === 'Personality') {
+    const score = result?.score ?? result?.total ?? result?.correct ?? 'N/A';
+    const qCount = result?.questionCount || 0;
+    const range = qCount >= 14 ? 70 : 35;
+    lines.push(`Score: ${score} / ${range}`);
+    if (result?.interpretation) lines.push(`Interpretation: ${result.interpretation}`);
+    if (result?.feedback) {
+      lines.push(``);
+      lines.push(`Suggestions:`);
+      lines.push(result.feedback);
+    }
+  } else if (test === 'Aptitude') {
+    const score = result?.score ?? result?.correct ?? 0;
+    const total = result?.total ?? result?.totalQuestions ?? 'N/A';
+    lines.push(`Score: ${score} / ${total}`);
+  } else {
+    lines.push(`Result data not available.`);
+  }
+
+  // Generate PDF via jsPDF (loaded via public/index.html)
+  try {
+    const doc = new window.jspdf.jsPDF();
+    const margin = 14;
+    let y = margin;
+    doc.setFontSize(16);
+    doc.text(lines[0], margin, y);
+    doc.setFontSize(11);
+    y += 8;
+    lines.slice(1).forEach(line => {
+      const split = doc.splitTextToSize(line, 180);
+      split.forEach(chunk => {
+        doc.text(chunk, margin, y);
+        y += 6;
+        if (y > 280) { doc.addPage(); y = margin; }
+      });
+    });
+    doc.save(`${roll}_${test}_report.pdf`);
+  } catch (e) {
+    // Fallback to text if PDF fails
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${roll}_${test}_report.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 }
 
 function TestComponent({ profile, fetchProfile, testKey }) {
@@ -1481,9 +1543,7 @@ function StudentsManagement() {
                   <div key={idx} className="p-4 border rounded-lg bg-gray-50">
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex-1">
-                        <div className="font-semibold text-lg mb-1">
-                          {r.test} {r.test === 'RIASEC' && `— ${r.primaryCareer}`}
-                        </div>
+                        <div className="font-semibold text-lg mb-1">{r.test}</div>
                         <div className="text-sm text-gray-500 mb-3">Completed: {new Date(r.completedAt).toLocaleString()}</div>
                         
                         {r.test === 'RIASEC' ? (
@@ -1527,7 +1587,7 @@ function StudentsManagement() {
                         ) : null}
                       </div>
                       <div className="flex-shrink-0">
-                        <button onClick={() => downloadResult(viewingStudent, r)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold whitespace-nowrap">Download</button>
+                        <button onClick={() => downloadResultForUser(r, viewingStudent)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold whitespace-nowrap">Download</button>
                       </div>
                     </div>
                   </div>
