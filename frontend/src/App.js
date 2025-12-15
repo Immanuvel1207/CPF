@@ -611,7 +611,6 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   }
 
   if (result) {
-    // Render result differently depending on test type
     if (testKey === 'Personality') {
       const total = result.total || result.score || 0;
       const interpretation = result.interpretation || result.feedback || '';
