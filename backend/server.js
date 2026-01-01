@@ -807,5 +807,115 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Admin: Download all students' results as Excel/CSV
+app.get('/api/admin/download-all-results', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const students = await User.find({ role: 'student' })
+      .select('-password')
+      .sort({ name: 1 });
+
+    // Prepare data for export
+    const rows = [];
+    
+    // Add header row
+    rows.push({
+      'Roll Number': '',
+      'Student Name': '',
+      'Test Type': '',
+      'RIASEC Category': '',
+      'Aptitude Score': '',
+      'Personality Score': '',
+      'Personality Interpretation': '',
+      'Completed Date': ''
+    });
+
+    // For each student, add rows for each test result
+    students.forEach(student => {
+      if (!student.testResults || student.testResults.length === 0) {
+        rows.push({
+          'Roll Number': student.rollNumber,
+          'Student Name': student.name,
+          'Test Type': 'No tests completed',
+          'RIASEC Category': '',
+          'Aptitude Score': '',
+          'Personality Score': '',
+          'Personality Interpretation': '',
+          'Completed Date': ''
+        });
+      } else {
+        // Create a row for each test
+        const riasecResult = student.testResults.find(r => r.test === 'RIASEC');
+        const aptitudeResult = student.testResults.find(r => r.test === 'Aptitude');
+        const personalityResult = student.testResults.find(r => r.test === 'Personality');
+
+        // If any test exists, create consolidated row
+        if (riasecResult || aptitudeResult || personalityResult) {
+          const riasecCategory = riasecResult 
+            ? (riasecResult.topThree && riasecResult.topThree[0] 
+              ? riasecResult.topThree[0].split(' - ')[0] 
+              : 'N/A')
+            : 'Not Completed';
+          
+          const aptitudeScore = aptitudeResult 
+            ? `${aptitudeResult.score || aptitudeResult.correct || 0}/${aptitudeResult.total || 0}`
+            : 'Not Completed';
+          
+          const personalityScore = personalityResult 
+            ? personalityResult.score || personalityResult.total || 'N/A'
+            : 'Not Completed';
+          
+          const personalityInterpretation = personalityResult 
+            ? personalityResult.interpretation || 'N/A'
+            : 'Not Completed';
+
+          const latestDate = student.testResults.length > 0
+            ? new Date(student.testResults[student.testResults.length - 1].completedAt).toLocaleString()
+            : 'N/A';
+
+          rows.push({
+            'Roll Number': student.rollNumber,
+            'Student Name': student.name,
+            'Test Type': 'All Tests Summary',
+            'RIASEC Category': riasecCategory,
+            'Aptitude Score': aptitudeScore,
+            'Personality Score': personalityScore,
+            'Personality Interpretation': personalityInterpretation,
+            'Completed Date': latestDate
+          });
+        }
+      }
+    });
+
+    // Convert to worksheet
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    
+    // Set column widths for better readability
+    worksheet['!cols'] = [
+      { wch: 15 }, // Roll Number
+      { wch: 25 }, // Student Name
+      { wch: 18 }, // Test Type
+      { wch: 18 }, // RIASEC Category
+      { wch: 18 }, // Aptitude Score
+      { wch: 18 }, // Personality Score
+      { wch: 28 }, // Personality Interpretation
+      { wch: 22 }  // Completed Date
+    ];
+
+    // Create workbook and add worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'All Results');
+
+    // Generate buffer
+    const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+    // Send file
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="All_Students_Results.xlsx"');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

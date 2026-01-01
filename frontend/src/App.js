@@ -1826,36 +1826,57 @@ function StudentsManagement() {
           </form>
         )}
 
-        <div className="mb-4">
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by Roll Number or Name..."
-                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              />
-              <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <div>
-              <select
-                value={riasecFilter}
-                onChange={(e) => setRiasecFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              >
-                <option value="ALL">All RIASEC</option>
-                <option value="NONE">No RIASEC result</option>
-                <option value="R">Realistic (R)</option>
-                <option value="I">Investigative (I)</option>
-                <option value="A">Artistic (A)</option>
-                <option value="S">Social (S)</option>
-                <option value="E">Enterprising (E)</option>
-                <option value="C">Conventional (C)</option>
-              </select>
-            </div>
+        <div className="mb-4 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by Roll Number or Name..."
+              className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            />
+            <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <div className="flex gap-3">
+            <select
+              value={riasecFilter}
+              onChange={(e) => setRiasecFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            >
+              <option value="ALL">All RIASEC</option>
+              <option value="NONE">No RIASEC result</option>
+              <option value="R">Realistic (R)</option>
+              <option value="I">Investigative (I)</option>
+              <option value="A">Artistic (A)</option>
+              <option value="S">Social (S)</option>
+              <option value="E">Enterprising (E)</option>
+              <option value="C">Conventional (C)</option>
+            </select>
+            <button 
+              onClick={async () => {
+                try {
+                  const response = await axios.get(`${API_URL}/admin/download-all-results`, {
+                    responseType: 'blob'
+                  });
+                  const url = URL.createObjectURL(response.data);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'All_Students_Results.xlsx';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  notify('Results downloaded successfully!', 'success');
+                } catch (error) {
+                  notify('Failed to download results', 'error');
+                  console.error(error);
+                }
+              }}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold whitespace-nowrap"
+              title="Download all students' results as Excel"
+            >
+              📥 Download All Results
+            </button>
           </div>
         </div>
       </div>
