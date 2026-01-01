@@ -61,7 +61,7 @@ function App() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              <h1 className="text-lg font-bold">MBA Career Assessment</h1>
+              <h1 className="text-lg font-bold">Core Assessment - Career Test (Holland  code - based)</h1>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm hidden md:inline">{user.name}</span>
@@ -122,12 +122,13 @@ function Login({ setUser }) {
                   e.target.nextElementSibling.style.display = 'block';
                 }}
               />
-          <h1 className="text-4xl font-bold mb-4">Welcome to Career Assessment Portal</h1>
+          <h1 className="text-4xl font-bold mb-4 mt-4">Student counselling Cell</h1>
+          <h2 className="text-4xl font-bold mb-4">Student Wellbeing Assessment Framework</h2>
           <p className="text-lg text-white/90 mb-6">Discover your ideal career path with our comprehensive assessment tools</p>
           <div className="space-y-2 text-sm text-white/80">
-            <p>✓ RIASEC Career Interest Assessment</p>
-            <p>✓ Personality Inventory</p>
-            <p>✓ Aptitude Testing</p>
+            <p></p>
+            <p></p>
+            <p></p>
           </div>
         </div>
       </div>
@@ -514,6 +515,44 @@ function StudentHome({ profile }) {
           );
         }
 
+        // Emotional Intelligence summary card
+        if (latest.test === 'EI') {
+          const factorData = latest.factorFeedback || latest.factors || {};
+          const globalScore = latest.globalScore ?? 0;
+          const globalLevel = latest.globalLevel || 'Average';
+          
+          return (
+            <>
+              <div className="bg-white rounded-xl shadow-md p-6 border border-teal-200">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-teal-100 text-teal-700 text-2xl">💭</div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-800">Emotional Intelligence (TEIQue-SF) Result</h3>
+                    <div className="mt-2 p-3 bg-teal-50 rounded-lg">
+                      <p className="text-sm font-semibold text-teal-700">Global EI Score: <span className="text-xl text-teal-800">{typeof globalScore === 'number' ? globalScore.toFixed(2) : globalScore}</span> / 7.0</p>
+                      <p className="text-sm font-semibold text-teal-700">Level: <span className="text-teal-800">{globalLevel}</span></p>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {Object.entries(factorData).map(([factor, data]) => {
+                        const scoreValue = typeof data === 'object' && data.score ? data.score : data;
+                        const displayScore = typeof scoreValue === 'number' ? scoreValue.toFixed(2) : parseFloat(scoreValue).toFixed(2);
+                        return (
+                          <div key={factor} className="bg-gray-50 p-2 rounded">
+                            <p className="text-xs font-semibold text-gray-700">{factor}</p>
+                            <p className="text-sm font-bold text-teal-600">{displayScore}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-3">Completed: {new Date(latest.completedAt).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+
+        }
+
         // Generic fallback
         return (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5">
@@ -620,19 +659,27 @@ function StudentHome({ profile }) {
             {sortedTestResults.map((r, idx) => {
               const isPersonality = r.test === 'Personality';
               const isAptitude = r.test === 'Aptitude';
+              const isEI = r.test === 'EI';
               const getNum = (v) => (v !== undefined && v !== null && !isNaN(Number(v)) ? Number(v) : null);
               const qc = getNum(r.questionCount);
               const sVal = getNum(r.score) ?? getNum(r.total) ?? getNum(r.correct);
+              
               const titleText = isPersonality 
                 ? `${r.test} (${qc && qc >= 14 ? 'WEMWBS' : 'SWEMWBS'})` 
                 : isAptitude 
                 ? `${r.test}` 
+                : isEI
+                ? `${r.test} — ${r.globalLevel || 'Completed'} EI`
                 : `${r.test} — ${r.primaryCareer}`;
+              
               const scoreText = isPersonality 
                 ? (qc ? `Score: ${sVal ?? '—'}/${qc >= 14 ? 70 : 35}` : (sVal != null ? `Score: ${sVal}` : 'Score: —')) 
                 : isAptitude 
                 ? `Score: ${sVal ?? '—'}/${getNum(r.total) ?? getNum(r.totalQuestions) ?? '—'}` 
+                : isEI
+                ? (r.globalScore !== undefined && r.globalScore !== null ? `Global Score: ${typeof r.globalScore === 'number' ? r.globalScore.toFixed(2) : r.globalScore}/7.0` : 'Global Score: —/7.0')
                 : `Top: ${r.topThree?.map(t => t.split(' - ')[0]).join(', ')}`;
+
               
               return (
                 <div key={idx} className="border rounded-lg p-4 bg-gray-50">
@@ -681,6 +728,46 @@ function downloadResultForUser(result, profile) {
       lines.push(``);
       lines.push(`Suggestions:`);
       recs.forEach(s => lines.push(`- ${s}`));
+    }
+  } else if (test === 'EI') {
+    const factorData = result?.factorFeedback || result?.factors || {};
+    const globalScore = result?.globalScore;
+    const globalLevel = result?.globalLevel;
+    
+    if (globalScore !== undefined && globalScore !== null) {
+      const scoreNum = typeof globalScore === 'number' ? globalScore : parseFloat(globalScore);
+      lines.push(`Global EI Score: ${scoreNum.toFixed(2)} / 7.0`);
+    } else {
+      lines.push(`Global EI Score: Data not available`);
+    }
+    
+    if (globalLevel) {
+      lines.push(`Level: ${globalLevel}`);
+    } else {
+      lines.push(`Level: Assessment complete`);
+    }
+    
+    lines.push(``);
+    lines.push(`Factor Scores:`);
+    
+    if (Object.keys(factorData).length > 0) {
+      Object.entries(factorData).forEach(([factor, data]) => {
+        const scoreValue = typeof data === 'object' && data.score ? data.score : data;
+        const numScore = typeof scoreValue === 'number' ? scoreValue : parseFloat(scoreValue);
+        if (!isNaN(numScore)) {
+          lines.push(`- ${factor}: ${numScore.toFixed(2)} / 7.0`);
+        } else {
+          lines.push(`- ${factor}: Data not available`);
+        }
+      });
+    } else {
+      lines.push(`- Factor data not available`);
+    }
+    
+    if (result?.globalFeedback) {
+      lines.push(``);
+      lines.push(`Overall Assessment:`);
+      lines.push(result.globalFeedback);
     }
   } else if (test === 'Personality') {
     const score = result?.score ?? result?.total ?? result?.correct ?? 'N/A';
@@ -740,6 +827,8 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [visitedQuestions, setVisitedQuestions] = useState({});
+  const [showInstructions, setShowInstructions] = useState(true);
+  const [readyToStart, setReadyToStart] = useState(false);
 
   const fetchQuestions = React.useCallback(async () => {
     try {
@@ -755,8 +844,9 @@ function TestComponent({ profile, fetchProfile, testKey }) {
         response = testKey ? await axios.get(pubUrl, { params: { test: testKey } }) : await axios.get(pubUrl);
       }
       setQuestions(response.data);
-      // Initialize answers for non-RIASEC tests (checkboxes) so every question is considered answered by default (false)
-      if ((testKey && testKey !== 'RIASEC') && response.data && response.data.length) {
+      // Do NOT initialize slider-based tests (RIASEC, Personality, EI) - they need explicit user interaction
+      // Only initialize Aptitude with 0 values for MCQ radio buttons
+      if ((testKey && testKey === 'Aptitude') && response.data && response.data.length) {
         const init = {};
         response.data.forEach(q => { init[q._id] = 0; });
         setAnswers(init);
@@ -823,10 +913,20 @@ function TestComponent({ profile, fetchProfile, testKey }) {
       const response = await axios.post(`${API_URL}/submit-test`, { answers, test: testKey });
       setResult(response.data);
       await fetchProfile();
+      
+      // Test-specific success message
+      let testName = testKey;
+      if (testKey === 'RIASEC') testName = 'Career Interest Assessment';
+      else if (testKey === 'Personality') testName = 'Personality Inventory';
+      else if (testKey === 'Aptitude') testName = 'Aptitude Test';
+      else if (testKey === 'EI') testName = 'Emotional Intelligence';
+      
+      notify(`${testName} submitted successfully! 🎉`, 'success');
+      
       // celebration on success
       try { celebrate(); } catch (e) { /* ignore if unavailable */ }
     } catch (error) {
-      notify('Submission failed', 'error');
+      notify('Submission failed. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -835,10 +935,14 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   const isAnswered = (q) => {
     const a = answers[q._id];
     const t = (q.test || '').toString().toLowerCase();
+    // Slider-based tests: RIASEC (5-point), Personality (5-point), EI (7-point)
+    // All require explicit user selection, so undefined means not answered
     if (t === 'riasec') return a !== undefined;
-    if (t === 'personality') return a !== undefined && a !== 0;
+    if (t === 'personality') return a !== undefined;
+    if (t === 'ei') return a !== undefined;
+    // Aptitude uses MCQ radio buttons - undefined or empty/null/0 means not answered
     if (t === 'aptitude') return a !== undefined && a !== '' && a !== 0 && a !== null;
-    // generic fallback
+    // Generic fallback for checkbox-based tests
     return a !== undefined && a !== 0;
   };
 
@@ -879,7 +983,199 @@ function TestComponent({ profile, fetchProfile, testKey }) {
     );
   }
 
+  // Show instructions screen before starting the test
+  if (showInstructions && !result) {
+    // Test-specific instructions
+    const getInstructions = () => {
+      switch (testKey) {
+        case 'RIASEC':
+          return {
+            icon: '🎯',
+            title: 'Holland Career Code Assessment',
+            subtitle: 'What Sparks your Interest?',
+            fullText: `This assessment is designed to help you understand your interests, strengths, and preferred ways of working.
+
+There are no right or wrong answers—respond honestly based on what you enjoy or feel comfortable doing. Your responses will help identify career paths that align with your natural inclinations and engineering interests. The results are meant for self-reflection and career planning, not for evaluation or grading.
+
+Please answer all questions thoughtfully to gain the most meaningful insights from the assessment.`
+          };
+        case 'Personality':
+          return {
+            icon: '😊',
+            title: 'Warwick–Edinburgh Mental Wellbeing Scale',
+            subtitle: null,
+            fullText: `This assessment is designed to understand your general mental wellbeing and positive feelings. It focuses on thoughts, emotions, and experiences related to everyday life.
+
+There are no right or wrong answers—please respond honestly based on how you have been feeling recently.
+
+Please read each statement carefully and choose the option that best reflects your experience and your feelings in the past 2 weeks.`
+          };
+        case 'EI':
+          return {
+            icon: '💭',
+            title: 'Trait Emotional Intelligence Questionnaire (TEIQue)',
+            subtitle: null,
+            fullText: `This questionnaire is designed to understand how you typically perceive, express, and manage your emotions.
+
+There are no right or wrong answers—please respond based on what best reflects you, not what you think is expected.
+
+Your responses will help in gaining insights into emotional strengths and areas for personal development.`
+          };
+        case 'Aptitude':
+          return {
+            icon: '🛡️',
+            title: 'Student Resilience Survey (SRS)',
+            subtitle: null,
+            fullText: `This survey is designed to understand how you respond to challenges, stress, and change in your academic and personal life.
+
+There are no right or wrong answers—please respond honestly based on your usual experiences.
+
+Your responses will help identify strengths and areas where additional support may be helpful.`
+          };
+        default:
+          return {
+            icon: '📋',
+            title: 'Assessment',
+            subtitle: null,
+            fullText: 'Please answer all questions honestly and thoughtfully.'
+          };
+      }
+    };
+
+    const inst = getInstructions();
+
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-lg p-8 md:p-10">
+          {/* Header Section */}
+          <div className="text-center mb-8 pb-6 border-b-2 border-indigo-200">
+            <div className="text-6xl mb-4 animate-bounce">{inst.icon}</div>
+            <h2 className="text-4xl font-bold mb-2 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              {inst.title}
+            </h2>
+            {inst.subtitle && (
+              <p className="text-xl text-indigo-700 font-semibold italic mt-2">{inst.subtitle}</p>
+            )}
+          </div>
+
+          {/* Main Content */}
+          <div className="mb-8">
+            <div className="bg-white border-l-4 border-indigo-600 rounded-lg p-6 mb-6 shadow-sm">
+              <p className="text-base leading-relaxed whitespace-pre-line text-gray-800 font-medium">
+                {inst.fullText}
+              </p>
+            </div>
+
+            {/* Key Points Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <div className="text-3xl mb-2">✓</div>
+                <p className="text-sm font-semibold text-green-800">Honest Responses</p>
+                <p className="text-xs text-green-700 mt-1">Be truthful and authentic</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                <div className="text-3xl mb-2">⏱️</div>
+                <p className="text-sm font-semibold text-blue-800">Take Your Time</p>
+                <p className="text-xs text-blue-700 mt-1">No time pressure</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+                <div className="text-3xl mb-2">🎯</div>
+                <p className="text-sm font-semibold text-purple-800">Self-Discovery</p>
+                <p className="text-xs text-purple-700 mt-1">Meaningful insights</p>
+              </div>
+            </div>
+
+            {/* Important Notes */}
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-900 flex items-start gap-2">
+                <span className="text-lg">⚠️</span>
+                <span><strong>Important:</strong> There are no right or wrong answers. Your honest responses will provide the most accurate and meaningful results.</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Ready Checkbox */}
+          <div className="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-lg p-5 mb-6 border border-indigo-300">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={readyToStart}
+                onChange={(e) => setReadyToStart(e.target.checked)}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="ml-3 text-gray-800 font-medium">
+                I have read and understood the instructions above
+              </span>
+            </label>
+          </div>
+
+          {/* Start Button */}
+          <div className="text-center">
+            <button
+              onClick={() => setShowInstructions(false)}
+              disabled={!readyToStart}
+              className={`px-10 py-3 rounded-xl font-bold text-lg transition-all shadow-lg ${
+                readyToStart
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 cursor-pointer transform hover:scale-105 active:scale-95'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {readyToStart ? '✨ Start Test' : 'Check the box to continue'}
+            </button>
+            <p className="text-xs text-gray-600 mt-3">You can always go back to review these instructions later</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (result) {
+    if (testKey === 'EI') {
+      const factors = result.factors || {};
+      const factorFeedback = result.factorFeedback || {};
+      const globalScore = result.globalScore || 0;
+      const globalLevel = result.globalLevel || 'Average';
+      const globalFeedback = result.globalFeedback || '';
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="bg-green-500 text-white rounded-xl p-8 text-center">
+            <div className="text-6xl mb-3">🎉</div>
+            <h2 className="text-3xl font-bold">Emotional Intelligence Assessment Complete</h2>
+            <div className="text-lg mt-4 font-semibold">Global EI Score: <span className="text-2xl">{globalScore.toFixed(2)}</span> / 7.0</div>
+            <div className="text-sm mt-2 opacity-90 font-semibold">Level: {globalLevel}</div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-2xl font-bold mb-4 text-center">Your EI Factor Scores</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(factors).map(([factor, score]) => {
+                const fb = factorFeedback[factor] || {};
+                const scoreLevelColor = fb.level === 'High' ? 'text-green-600' : fb.level === 'Low' ? 'text-red-600' : 'text-yellow-600';
+                const bgColor = fb.level === 'High' ? 'bg-green-50' : fb.level === 'Low' ? 'bg-red-50' : 'bg-yellow-50';
+                const borderColor = fb.level === 'High' ? 'border-green-200' : fb.level === 'Low' ? 'border-red-200' : 'border-yellow-200';
+                return (
+                  <div key={factor} className={`${bgColor} border-2 ${borderColor} rounded-lg p-4`}>
+                    <h4 className="text-lg font-bold mb-2">{factor}</h4>
+                    <div className="flex items-baseline gap-2 mb-3">
+                      <span className={`text-3xl font-bold ${scoreLevelColor}`}>{score.toFixed(2)}</span>
+                      <span className={`text-sm font-semibold ${scoreLevelColor}`}>{fb.level}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 leading-relaxed">{fb.feedback}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-6">
+            <h4 className="font-bold text-indigo-800 text-lg mb-2">Overall Emotional Intelligence Profile</h4>
+            <p className="text-sm text-indigo-700 leading-relaxed">{globalFeedback}</p>
+          </div>
+        </div>
+      );
+    }
+
     if (testKey === 'Personality') {
       const score = result.score || 0;
       const questionCount = result.questionCount || questions.length;
@@ -970,8 +1266,10 @@ function TestComponent({ profile, fetchProfile, testKey }) {
   const hasAnswer = answers[currentQuestion._id] !== undefined;
   const isQuestionVisited = visitedQuestions[currentQuestion._id] === true;
   const showUnansweredWarning = isQuestionVisited && !hasAnswer;
-  const currentAnswer = (testKey === 'RIASEC')
+  const currentAnswer = (testKey === 'RIASEC' || testKey === 'Personality')
     ? (hasAnswer ? answers[currentQuestion._id] : 3)
+    : (testKey === 'EI')
+    ? (hasAnswer ? answers[currentQuestion._id] : 4)
     : (hasAnswer ? answers[currentQuestion._id] : 0);
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / questions.length) * 100;
@@ -982,6 +1280,16 @@ function TestComponent({ profile, fetchProfile, testKey }) {
     { value: 3, label: 'Neutral' },
     { value: 4, label: 'Agree' },
     { value: 5, label: 'Strongly Agree' }
+  ];
+
+  const sliderLabelsEI = [
+    { value: 1, label: 'Completely Disagree' },
+    { value: 2, label: 'Disagree' },
+    { value: 3, label: 'Somewhat Disagree' },
+    { value: 4, label: 'Neutral' },
+    { value: 5, label: 'Somewhat Agree' },
+    { value: 6, label: 'Agree' },
+    { value: 7, label: 'Completely Agree' }
   ];
 
   // Personality Inventory scale as requested: None → Rarely → Some → Often → All of the time
@@ -1059,6 +1367,28 @@ function TestComponent({ profile, fetchProfile, testKey }) {
               />
               <div className="flex justify-between mt-3">
                 {sliderLabelsPersonality.map((item) => (
+                  <div key={item.value} className="text-center flex-1">
+                    <div className={`text-xs font-medium ${(hasAnswer && currentAnswer === item.value) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
+                      {item.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : testKey === 'EI' ? (
+            <div className="relative px-2">
+              <input
+                type="range"
+                min="1"
+                max="7"
+                step="1"
+                value={currentAnswer}
+                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+                onClick={handleRangeClick}
+                className={`w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer slider ${!hasAnswer ? 'range-no-thumb' : ''}`}
+              />
+              <div className="flex justify-between mt-3">
+                {sliderLabelsEI.map((item) => (
                   <div key={item.value} className="text-center flex-1">
                     <div className={`text-xs font-medium ${(hasAnswer && currentAnswer === item.value) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
                       {item.label}
@@ -1249,6 +1579,7 @@ function StudentsManagement() {
   const [viewingStudent, setViewingStudent] = useState(null);
   const [tests, setTests] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [riasecFilter, setRiasecFilter] = useState('ALL');
   const { notify, confirm } = useNotification();
 
   useEffect(() => {
@@ -1331,13 +1662,98 @@ function StudentsManagement() {
     }
   };
   const downloadResult = (student, result) => {
-    const report = `CAREER ASSESSMENT REPORT\n\nStudent Information:\n- Name: ${student.name}\n- Roll Number: ${student.rollNumber}\n- Assessment Date: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}\n\nResult (Test: ${result?.test || 'N/A'}):\n- Primary Career Type: ${result?.primaryCareer || 'N/A'}\n- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}\n\nScore Breakdown:\n${Object.entries(result?.scores || {}).map(([code, score]) => `- ${code}: ${score}`).join('\n')}\n\nPreferred Tasks & Activities:\n${result?.recommendedCareers?.map(c => `- ${c}`).join('\n') || 'N/A'}`;
+    let reportLines = [];
+    reportLines.push(`CAREER ASSESSMENT REPORT`);
+    reportLines.push(``);
+    reportLines.push(`Student Information:`);
+    reportLines.push(`- Name: ${student.name}`);
+    reportLines.push(`- Roll Number: ${student.rollNumber}`);
+    reportLines.push(`- Assessment Date: ${result?.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}`);
+    reportLines.push(`- Test Type: ${result?.test || 'N/A'}`);
+    reportLines.push(``);
 
+    if (result?.test === 'RIASEC') {
+      reportLines.push(`Result (RIASEC Career Assessment):`);
+      reportLines.push(`- Primary Career Type: ${result?.primaryCareer || 'N/A'}`);
+      reportLines.push(`- Top Three Types: ${result?.topThree?.join(', ') || 'N/A'}`);
+      reportLines.push(``);
+      reportLines.push(`Score Breakdown:`);
+      Object.entries(result?.scores || {}).forEach(([code, score]) => {
+        reportLines.push(`- ${code}: ${score} / 35`);
+      });
+      if (result?.recommendedCareers && result.recommendedCareers.length > 0) {
+        reportLines.push(``);
+        reportLines.push(`Recommended Careers:`);
+        result.recommendedCareers.forEach(c => reportLines.push(`- ${c}`));
+      }
+    } else if (result?.test === 'EI') {
+      reportLines.push(`Result (Emotional Intelligence - TEIQue-SF):`);
+      const globalScore = result?.globalScore;
+      const globalLevel = result?.globalLevel;
+      
+      if (globalScore !== undefined && globalScore !== null) {
+        const scoreNum = typeof globalScore === 'number' ? globalScore : parseFloat(globalScore);
+        reportLines.push(`- Global EI Score: ${scoreNum.toFixed(2)} / 7.0`);
+      } else {
+        reportLines.push(`- Global EI Score: Data not available`);
+      }
+      
+      if (globalLevel) {
+        reportLines.push(`- Level: ${globalLevel}`);
+      }
+      
+      reportLines.push(``);
+      reportLines.push(`Factor Scores:`);
+      
+      const factorData = result?.factorFeedback || result?.factors || {};
+      if (Object.keys(factorData).length > 0) {
+        Object.entries(factorData).forEach(([factor, data]) => {
+          const scoreValue = typeof data === 'object' && data.score ? data.score : data;
+          const numScore = typeof scoreValue === 'number' ? scoreValue : parseFloat(scoreValue);
+          if (!isNaN(numScore)) {
+            reportLines.push(`- ${factor}: ${numScore.toFixed(2)} / 7.0`);
+          } else {
+            reportLines.push(`- ${factor}: Data not available`);
+          }
+        });
+      } else {
+        reportLines.push(`- Factor data not available`);
+      }
+      
+      if (result?.globalFeedback) {
+        reportLines.push(``);
+        reportLines.push(`Overall Assessment:`);
+        reportLines.push(result.globalFeedback);
+      }
+    } else if (result?.test === 'Personality') {
+      reportLines.push(`Result (Personality Inventory):`);
+      const score = result?.score ?? result?.total ?? result?.correct ?? 'N/A';
+      const qCount = result?.questionCount || 0;
+      const range = qCount >= 14 ? 70 : 35;
+      reportLines.push(`- Score: ${score} / ${range}`);
+      reportLines.push(`- Scale: ${qCount >= 14 ? 'WEMWBS (14-item)' : 'SWEMWBS (7-item)'}`);
+      if (result?.interpretation) reportLines.push(`- Interpretation: ${result.interpretation}`);
+      if (result?.feedback) {
+        reportLines.push(``);
+        reportLines.push(`Feedback:`);
+        reportLines.push(result.feedback);
+      }
+    } else if (result?.test === 'Aptitude') {
+      reportLines.push(`Result (Aptitude Test):`);
+      const score = result?.score ?? result?.correct ?? 0;
+      const total = result?.total ?? result?.totalQuestions ?? 'N/A';
+      reportLines.push(`- Score: ${score} / ${total}`);
+      reportLines.push(`- Correct Answers: ${score}`);
+    } else {
+      reportLines.push(`Result: ${result?.test || 'Unknown'} test - Data available`);
+    }
+
+    const report = reportLines.join('\n');
     const blob = new Blob([report], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${student.rollNumber}_${result.test || 'result'}_career_report.txt`;
+    a.download = `${student.rollNumber}_${result?.test || 'result'}_report.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1346,15 +1762,32 @@ function StudentsManagement() {
 
   const filteredStudents = students.filter(student => {
     const query = searchQuery.toLowerCase();
-    return student.rollNumber.toLowerCase().includes(query) || student.name.toLowerCase().includes(query);
+    const matchesSearch = student.rollNumber.toLowerCase().includes(query) || student.name.toLowerCase().includes(query);
+
+    if (!matchesSearch) return false;
+
+    if (riasecFilter === 'ALL') return true;
+
+    // find latest RIASEC result
+    const latestRIASEC = (student.testResults || []).slice().reverse().find(tr => tr.test === 'RIASEC');
+    if (!latestRIASEC) return riasecFilter === 'NONE';
+    let primaryCode = null;
+    if (latestRIASEC.topThree && latestRIASEC.topThree.length) {
+      primaryCode = latestRIASEC.topThree[0].split(' ')[0];
+    } else if (latestRIASEC.scores) {
+      const entry = Object.entries(latestRIASEC.scores).sort(([,a],[,b]) => b - a)[0];
+      primaryCode = entry ? entry[0] : null;
+    }
+    if (!primaryCode) return false;
+    return primaryCode.toUpperCase() === riasecFilter;
   });
 
   return (
     <div>
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <h2 className="text-2xl font-bold mb-4">Student Management</h2>
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div className="grid grid-cols-4 gap-4">
+        <div className="flex flex-col lg:flex-row items-start justify-between gap-4 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full lg:w-auto">
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
             <p className="text-xs font-semibold text-blue-700">TOTAL STUDENTS</p>
             <p className="text-3xl font-bold text-blue-600">{students.length}</p>
@@ -1382,7 +1815,7 @@ function StudentsManagement() {
         </div>
 
         {showAddStudent && (
-          <form onSubmit={handleAddStudent} className="bg-indigo-50 p-4 rounded-lg mb-4 grid grid-cols-4 gap-3">
+          <form onSubmit={handleAddStudent} className="bg-indigo-50 p-4 rounded-lg mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <input required value={newStudent.rollNumber} onChange={(e) => setNewStudent({...newStudent, rollNumber: e.target.value})} placeholder="Roll Number" className="px-3 py-2 border rounded" />
             <input required value={newStudent.name} onChange={(e) => setNewStudent({...newStudent, name: e.target.value})} placeholder="Name" className="px-3 py-2 border rounded" />
             <input value={newStudent.year} onChange={(e) => setNewStudent({...newStudent, year: e.target.value})} placeholder="Year (optional)" className="px-3 py-2 border rounded" />
@@ -1394,22 +1827,41 @@ function StudentsManagement() {
         )}
 
         <div className="mb-4">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Roll Number or Name..."
-              className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-            />
-            <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by Roll Number or Name..."
+                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              />
+              <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <div>
+              <select
+                value={riasecFilter}
+                onChange={(e) => setRiasecFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              >
+                <option value="ALL">All RIASEC</option>
+                <option value="NONE">No RIASEC result</option>
+                <option value="R">Realistic (R)</option>
+                <option value="I">Investigative (I)</option>
+                <option value="A">Artistic (A)</option>
+                <option value="S">Social (S)</option>
+                <option value="E">Enterprising (E)</option>
+                <option value="C">Conventional (C)</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
             <tr>
@@ -1472,6 +1924,20 @@ function StudentsManagement() {
                               Score: {latestResult.score || latestResult.correct || 0} / {latestResult.total || latestResult.totalQuestions || '—'}
                             </div>
                           </>
+                        ) : latestResult.test === 'EI' ? (
+                          <>
+                            <div className="font-semibold text-teal-600">
+                              Global EI: {latestResult.globalScore !== undefined && latestResult.globalScore !== null ? (typeof latestResult.globalScore === 'number' ? latestResult.globalScore.toFixed(2) : latestResult.globalScore) : '—'} / 7.0
+                            </div>
+                            <div className="text-gray-600">Level: {latestResult.globalLevel || '—'}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {(() => {
+                                const factorData = latestResult.factorFeedback || latestResult.factors || {};
+                                const factorCount = Object.keys(factorData).length;
+                                return factorCount > 0 ? `${factorCount} factors assessed` : 'Factors available';
+                              })()}
+                            </div>
+                          </>
                         ) : (
                           <span className="text-gray-500">{latestResult.test} - Test completed</span>
                         )}
@@ -1481,7 +1947,7 @@ function StudentsManagement() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {latestResult && (
                         <button
                           onClick={() => downloadResult(student, latestResult)}
@@ -1528,11 +1994,12 @@ function StudentsManagement() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
       {/* Viewing modal for a selected student (inside StudentsManagement scope) */}
       {viewingStudent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 md:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">Results for {viewingStudent.name}</h3>
               <button onClick={() => setViewingStudent(null)} className="text-gray-500 px-2 py-1">Close</button>
@@ -1584,7 +2051,43 @@ function StudentsManagement() {
                               <div className="text-sm text-gray-600 mt-2">Correct Answers: {r.score || r.correct || 0}</div>
                             </div>
                           </>
+                        ) : r.test === 'EI' ? (
+                          <>
+                            <div className="bg-white rounded border p-3 mb-2">
+                              <div className="mb-3 pb-3 border-b">
+                                <div className="text-sm text-gray-700">
+                                  <span className="font-semibold">Global EI Score:</span> <span className="text-lg font-bold text-teal-600">{r.globalScore !== undefined && r.globalScore !== null ? (typeof r.globalScore === 'number' ? r.globalScore.toFixed(2) : r.globalScore) : '—'}</span> / 7.0
+                                </div>
+                                <div className="text-sm text-gray-700 mt-1">
+                                  <span className="font-semibold">Level:</span> <span className="font-semibold text-indigo-600">{r.globalLevel || '—'}</span>
+                                </div>
+                              </div>
+                              <div className="mt-2">
+                                <div className="text-xs font-semibold text-gray-600 mb-2">FACTOR BREAKDOWN</div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(() => {
+                                    const factorData = r.factorFeedback || r.factors || {};
+                                    return Object.entries(factorData).map(([factor, data]) => {
+                                      const scoreValue = typeof data === 'object' && data.score ? data.score : data;
+                                      const levelValue = typeof data === 'object' && data.level ? data.level : '';
+                                      const displayScore = typeof scoreValue === 'number' ? scoreValue.toFixed(2) : (isNaN(parseFloat(scoreValue)) ? '—' : parseFloat(scoreValue).toFixed(2));
+                                      const levelColor = levelValue === 'High' ? 'text-green-600' : levelValue === 'Low' ? 'text-red-600' : 'text-yellow-600';
+                                      const bgColor = levelValue === 'High' ? 'bg-green-50' : levelValue === 'Low' ? 'bg-red-50' : 'bg-yellow-50';
+                                      return (
+                                        <div key={factor} className={`${bgColor} p-2 rounded text-xs border`}>
+                                          <div className="font-semibold text-gray-700">{factor}</div>
+                                          <div className={`font-bold ${levelColor}`}>{displayScore}/7.0</div>
+                                          {levelValue && <div className="text-gray-600">{levelValue}</div>}
+                                        </div>
+                                      );
+                                    });
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
+                          </>
                         ) : null}
+
                       </div>
                       <div className="flex-shrink-0">
                         <button onClick={() => downloadResultForUser(r, viewingStudent)} className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold whitespace-nowrap">Download</button>
@@ -1765,7 +2268,7 @@ function QuestionsManagement() {
 
         {showForm && (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4 bg-indigo-50 p-5 rounded-lg">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block font-semibold mb-1 text-sm">Question Number</label>
                 <input
