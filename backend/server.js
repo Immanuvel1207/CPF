@@ -54,6 +54,12 @@ const userSchema = new mongoose.Schema({
       // Aptitude fields
       correct: Number,
       total: Number,
+      // EI (Emotional Intelligence) fields
+      factors: mongoose.Schema.Types.Mixed,
+      factorFeedback: mongoose.Schema.Types.Mixed,
+      globalScore: Number,
+      globalLevel: String,
+      globalFeedback: String,
       // Common field
       completedAt: Date
     }
@@ -95,6 +101,30 @@ const isAdmin = (req, res, next) => {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();
+};
+
+// EI Factor interpretations and recommendations
+const eiFeedback = {
+  'Well-being': {
+    low: 'Tends to have a gloomy outlook; may struggle with self-confidence or feel dissatisfied with current life circumstances. Focus on identifying small positive moments daily and practice gratitude.',
+    average: 'Generally satisfied and realistic; possesses a balanced sense of self-worth with occasional bouts of insecurity. You have a solid foundation—consider activities that boost confidence.',
+    high: 'Optimistic, happy, and fulfilled; has high self-esteem and a very positive outlook on the future. Use your positive energy to inspire others and maintain this momentum.'
+  },
+  'Self-control': {
+    low: 'Likely impulsive or easily stressed; finds it difficult to stay calm under pressure or manage intense moods. Practice mindfulness and breathing techniques to regulate emotions.',
+    average: 'Usually capable of staying calm; can regulate impulses in daily life but may feel overwhelmed by extreme stress. Develop coping strategies for high-pressure situations.',
+    high: 'Excellent impulse control; highly resilient to stress and capable of regulating moods effectively. Your emotional regulation is a strength—help others develop these skills.'
+  },
+  'Emotionality': {
+    low: 'May find it hard to express feelings or "read" others; potentially feels disconnected from own emotions. Try journaling or therapy to better understand your emotions.',
+    average: 'Moderately in touch with feelings; can express emotions to friends but may occasionally misread subtle social cues. Practice active listening and empathy in conversations.',
+    high: 'Highly empathetic and emotionally articulate; finds it easy to share feelings and understand others\' perspectives. Your emotional awareness is valuable in building strong relationships.'
+  },
+  'Sociability': {
+    low: 'Often feels shy or reserved; may struggle to influence others or feel uncomfortable in social leadership roles. Start with small social interactions and build confidence gradually.',
+    average: 'Comfortably social in most settings; can stand up for self when necessary but may prefer to avoid social confrontation. Practice assertiveness in low-stakes situations.',
+    high: 'Socially confident and influential; a strong negotiator who feels at ease in various social environments. Consider taking on leadership roles to leverage your strengths.'
+  }
 };
 
 // Career recommendations based on RIASEC
@@ -153,6 +183,11 @@ const testsMeta = {
     id: 'Personality',
     name: 'Personality Inventory',
     description: 'Brief personality inventory to capture work-style preferences'
+  },
+  EI: {
+    id: 'EI',
+    name: 'Emotional Intelligence (TEIQue-SF)',
+    description: 'Measure your emotional intelligence across Well-being, Self-control, Emotionality, and Sociability'
   }
 };
 
@@ -456,6 +491,91 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
       await user.save();
 
       return res.json({ fullResult: newResult, score: correct, total: questions.length });
+    }
+
+    // Emotional Intelligence (EI/TEIQue-SF) handling
+    if (detectedTest === 'EI') {
+      // Apply reverse scoring to specified items: 2, 4, 5, 7, 8, 10, 12, 13, 14, 16, 18, 22, 25, 26, 28
+      const reverseItems = [2, 4, 5, 7, 8, 10, 12, 13, 14, 16, 18, 22, 25, 26, 28];
+      const processedAnswers = {};
+
+      questions.forEach(q => {
+        const rawValue = Number(answers[q._id.toString()] || 0);
+        let value = rawValue;
+        
+        // Reverse score if question number is in reverseItems
+        if (reverseItems.includes(q.questionNumber)) {
+          value = 8 - rawValue; // 1→7, 2→6, 3→5, 4→4, 5→3, 6→2, 7→1
+        }
+        
+        processedAnswers[q.questionNumber] = value;
+      });
+
+      // Calculate factors
+      const getAverage = (itemNums) => {
+        const sum = itemNums.reduce((acc, num) => acc + (processedAnswers[num] || 0), 0);
+        return sum / itemNums.length;
+      };
+
+      const factors = {
+        'Well-being': getAverage([5, 9, 12, 20, 24, 27]),
+        'Self-control': getAverage([4, 7, 15, 19, 22, 30]),
+        'Emotionality': getAverage([1, 2, 8, 13, 16, 17, 23, 28]),
+        'Sociability': getAverage([6, 10, 11, 21, 25, 26])
+      };
+
+      // Calculate global score
+      const allValues = Object.values(processedAnswers).filter(v => v);
+      const globalScore = allValues.reduce((a, b) => a + b, 0) / allValues.length;
+
+      // Determine levels and feedback
+      const getLevelAndFeedback = (score) => {
+        let level = '';
+        if (score <= 3.0) level = 'Low';
+        else if (score <= 4.9) level = 'Average';
+        else level = 'High';
+        return level.toLowerCase();
+      };
+
+      const factorFeedback = {};
+      Object.entries(factors).forEach(([factor, score]) => {
+        const level = getLevelAndFeedback(score);
+        factorFeedback[factor] = {
+          score: score.toFixed(2),
+          level: level.charAt(0).toUpperCase() + level.slice(1),
+          feedback: eiFeedback[factor][level]
+        };
+      });
+
+      const globalLevel = getLevelAndFeedback(globalScore);
+      const globalFeedback = globalLevel === 'low' 
+        ? 'Indicates a significant need for developing emotional awareness and coping strategies for social demands.'
+        : globalLevel === 'average'
+        ? 'Possesses the emotional tools needed for functional success in school and social life.'
+        : 'Indicates a high level of "Emotional Intelligence"; very effective at navigating the emotional landscape of life.';
+
+      const newResult = {
+        test: 'EI',
+        factors,
+        factorFeedback,
+        globalScore: parseFloat(globalScore.toFixed(2)),
+        globalLevel: globalLevel.charAt(0).toUpperCase() + globalLevel.slice(1),
+        globalFeedback,
+        completedAt: new Date()
+      };
+
+      user.testResults.push(newResult);
+      user.hasCompletedTest = true;
+      await user.save();
+
+      return res.json({
+        fullResult: newResult,
+        factors,
+        factorFeedback,
+        globalScore: parseFloat(globalScore.toFixed(2)),
+        globalLevel: globalLevel.charAt(0).toUpperCase() + globalLevel.slice(1),
+        globalFeedback
+      });
     }
 
     // Generic fallback: treat answers as truthy counts per category when available
