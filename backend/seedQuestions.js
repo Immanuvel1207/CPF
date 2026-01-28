@@ -135,17 +135,23 @@ const questions = [
   { questionNumber: 27, text: "I generally believe that things will work out fine in my life.", test: 'EI' },
   { questionNumber: 28, text: "I find it difficult to bond well even with those close to me.", test: 'EI' },
   { questionNumber: 29, text: "Generally, I'm able to adapt to new environments.", test: 'EI' },
-  { questionNumber: 30, text: "Others admire me for being relaxed.", test: 'EI' }
+  { questionNumber: 30, text: "Others admire me for being relaxed.", test: 'EI' },
   
-  // Aptitude test (sample questions)
-  ,{ questionNumber: 1, text: "I can solve basic algebraic equations", category: "A", test: 'Aptitude' },
-  { questionNumber: 2, text: "I can quickly identify patterns in numbers", category: "A", test: 'Aptitude' },
-  { questionNumber: 3, text: "I enjoy logical puzzles and brainteasers", category: "A", test: 'Aptitude' },
-
-  // Personality test (sample questions)
-  { questionNumber: 1, text: "I enjoy meeting new people", category: "S", test: 'Personality' },
-  { questionNumber: 2, text: "I prefer planning ahead to being spontaneous", category: "C", test: 'Personality' },
-  { questionNumber: 3, text: "I feel comfortable taking the lead in group situations", category: "E", test: 'Personality' }
+  // Personality test (WEMWBS 14-item)
+  { questionNumber: 1, text: "I have been feeling optimistic about the future", test: 'Personality' },
+  { questionNumber: 2, text: "I have been feeling useful", test: 'Personality' },
+  { questionNumber: 3, text: "I have been feeling relaxed", test: 'Personality' },
+  { questionNumber: 4, text: "I have been feeling interested in other people", test: 'Personality' },
+  { questionNumber: 5, text: "I have had energy to spare", test: 'Personality' },
+  { questionNumber: 6, text: "I have been dealing with problems well", test: 'Personality' },
+  { questionNumber: 7, text: "I have been thinking clearly", test: 'Personality' },
+  { questionNumber: 8, text: "I have been feeling good about myself", test: 'Personality' },
+  { questionNumber: 9, text: "I have been feeling close to other people", test: 'Personality' },
+  { questionNumber: 10, text: "I have been feeling confident", test: 'Personality' },
+  { questionNumber: 11, text: "I have been able to make up my own mind about things", test: 'Personality' },
+  { questionNumber: 12, text: "I have been feeling loved", test: 'Personality' },
+  { questionNumber: 13, text: "I have been interested in new things", test: 'Personality' },
+  { questionNumber: 14, text: "I have been feeling cheerful", test: 'Personality' }
 ];
 
 async function seedDatabase() {

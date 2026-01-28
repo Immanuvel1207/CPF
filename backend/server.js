@@ -174,11 +174,6 @@ const testsMeta = {
     name: 'RIASEC Career Assessment',
     description: 'Interests-based career assessment (Realistic, Investigative, Artistic, Social, Enterprising, Conventional)'
   },
-  Aptitude: {
-    id: 'Aptitude',
-    name: 'Aptitude Test',
-    description: 'Short quantitative and logical aptitude test'
-  },
   Personality: {
     id: 'Personality',
     name: 'Personality Inventory',
@@ -467,30 +462,6 @@ app.post('/api/submit-test', authenticateToken, async (req, res) => {
       await user.save();
 
       return res.json({ fullResult: newResult, score: total, questionCount: qCount, interpretation, feedback: feedbackMessages[interpretation] || '' });
-    }
-
-    // Aptitude handling - compare answers to stored correctAnswer
-    if (detectedTest === 'APTITUDE') {
-      let correct = 0;
-      questions.forEach(q => {
-        const provided = answers[q._id.toString()];
-        if (typeof provided !== 'undefined' && q.correctAnswer !== undefined && q.correctAnswer !== null) {
-          // compare as strings for robustness
-          if (String(provided).trim() === String(q.correctAnswer).trim()) correct += 1;
-        }
-      });
-
-      const newResult = {
-        test: 'Aptitude',
-        score: correct,
-        total: questions.length,
-        completedAt: new Date()
-      };
-      user.testResults.push(newResult);
-      user.hasCompletedTest = true;
-      await user.save();
-
-      return res.json({ fullResult: newResult, score: correct, total: questions.length });
     }
 
     // Emotional Intelligence (EI/TEIQue-SF) handling
