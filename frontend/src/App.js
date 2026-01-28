@@ -190,8 +190,8 @@ function Login({ setUser }) {
           <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <p className="text-xs font-semibold text-gray-700 mb-2">Demo Accounts</p>
             <div className="space-y-1 text-xs text-gray-600">
-              <p><span className="font-mono bg-white px-2 py-0.5 rounded">ADMIN001</span> / <span className="font-mono bg-white px-2 py-0.5 rounded">admin123</span></p>
-              <p><span className="font-mono bg-white px-2 py-0.5 rounded">MB001</span> / <span className="font-mono bg-white px-2 py-0.5 rounded">student</span></p>
+              {/* <p><span className="font-mono bg-white px-2 py-0.5 rounded">ADMIN001</span> / <span className="font-mono bg-white px-2 py-0.5 rounded">admin123</span></p>
+              <p><span className="font-mono bg-white px-2 py-0.5 rounded">MB001</span> / <span className="font-mono bg-white px-2 py-0.5 rounded">student</span></p> */}
             </div>
           </div>
         </div>
